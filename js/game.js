@@ -32,6 +32,19 @@ class Game {
       document.getElementById('title-screen').classList.add('hidden');
       this.startGame();
     };
+    // 继续游戏按钮（动态添加）
+    const saved = localStorage.getItem('tdj_save');
+    if (saved) {
+      const continueBtn = document.createElement('button');
+      continueBtn.textContent = '继续游戏';
+      continueBtn.id = 'continue-btn';
+      continueBtn.onclick = () => {
+        AudioSys.sfx('select');
+        document.getElementById('title-screen').classList.add('hidden');
+        this.loadGame();
+      };
+      document.querySelector('#title-screen .menu').insertBefore(continueBtn, document.getElementById('howto-btn'));
+    }
     document.getElementById('howto-btn').onclick = () => {
       AudioSys.sfx('select');
       document.getElementById('title-screen').classList.add('hidden');
@@ -438,7 +451,9 @@ class Game {
   }
 
   showVictoryScreen() {
+    this.state = 'victory';
     this.endTurnBtn.classList.add('hidden');
+    this.saveGame();
     this.uiVictory.classList.remove('hidden');
     const desc = this.uiVictory.querySelector('.victory-desc');
     if (this.levelIndex >= MAPS.length - 1) {
@@ -455,6 +470,41 @@ class Game {
     this.state = 'defeat';
     this.uiDefeat.classList.remove('hidden');
     this.endTurnBtn.classList.add('hidden');
+  }
+
+  saveGame() {
+    const saveData = {
+      levelIndex: this.levelIndex,
+      party: this.party.map(p => ({
+        key: p.key,
+        level: p.level,
+        exp: p.exp,
+        base: p.base
+      }))
+    };
+    localStorage.setItem('tdj_save', JSON.stringify(saveData));
+  }
+
+  loadGame() {
+    const saved = localStorage.getItem('tdj_save');
+    if (!saved) return;
+    const data = JSON.parse(saved);
+    this.levelIndex = data.levelIndex;
+    this.party = [];
+    for (const pd of data.party) {
+      const tmpl = PLAYER_CHARS[pd.key];
+      if (!tmpl) continue;
+      const c = clone(tmpl);
+      c.key = pd.key;
+      c.level = pd.level;
+      c.exp = pd.exp;
+      c.base = pd.base;
+      c.team = 'player';
+      c.acted = false;
+      c.id = 'p_' + pd.key;
+      this.party.push(c);
+    }
+    this.startLevel(this.levelIndex);
   }
 
   updateUnitInfo(unit) {
