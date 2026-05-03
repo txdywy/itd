@@ -4,7 +4,7 @@
 
 ## 🎮 在线游玩
 
-[点击这里开始游戏](https://YOUR_USERNAME.github.io/REPO_NAME/)
+[点击这里开始游戏](https://txdywy.github.io/itd/)
 
 > 请将 `YOUR_USERNAME` 和 `REPO_NAME` 替换为你的GitHub用户名和仓库名。
 
