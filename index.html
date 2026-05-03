@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>天地劫·像素传</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="game-container">
+  <canvas id="gameCanvas" width="640" height="480"></canvas>
+  <div id="ui-layer">
+    <div id="top-bar">
+      <span id="chapter-title">第一章：河州镇之劫</span>
+      <span id="turn-indicator">我方回合</span>
+    </div>
+    <div id="unit-info" class="hidden">
+      <div class="info-name">夏侯仪</div>
+      <div class="info-hp-bar"><div class="hp-fill"></div></div>
+      <div class="info-stats">
+        <span>HP: <b class="hp">100</b>/<b class="max-hp">100</b></span>
+        <span>MP: <b class="mp">50</b>/<b class="max-mp">50</b></span>
+      </div>
+    </div>
+    <div id="action-menu" class="hidden">
+      <button data-action="attack">攻击</button>
+      <button data-action="magic">法术</button>
+      <button data-action="item">道具</button>
+      <button data-action="wait">待机</button>
+    </div>
+    <button id="end-turn-btn" class="hidden">结束回合</button>
+    <div id="magic-menu" class="hidden">
+      <div class="magic-list"></div>
+      <button class="back-btn">返回</button>
+    </div>
+    <div id="tile-tooltip" class="hidden"></div>
+    <div id="dialogue-box" class="hidden">
+      <div class="portrait"></div>
+      <div class="dialogue-text"></div>
+      <div class="dialogue-name"></div>
+      <div class="click-hint">▼ 点击继续</div>
+    </div>
+    <div id="victory-screen" class="hidden overlay">
+      <h2>战斗胜利</h2>
+      <p class="victory-desc"></p>
+      <button id="next-level-btn">下一关</button>
+    </div>
+    <div id="defeat-screen" class="hidden overlay">
+      <h2>战斗失败</h2>
+      <p>勇者不败，再来一次！</p>
+      <button id="retry-btn">重新挑战</button>
+    </div>
+    <div id="title-screen" class="overlay">
+      <h1>天地劫·像素传</h1>
+      <p class="subtitle">像素战棋版 · 经典重现</p>
+      <div class="menu">
+        <button id="start-btn">开始游戏</button>
+        <button id="howto-btn">游戏说明</button>
+      </div>
+      <p class="footer">纯前端制作 | GitHub Pages部署</p>
+    </div>
+    <div id="howto-screen" class="hidden overlay">
+      <h2>游戏说明</h2>
+      <div class="howto-content">
+        <p><b>操作：</b>鼠标点击选择角色和移动/攻击目标</p>
+        <p><b>回合制战棋：</b>我方所有角色行动完毕后进入敌方回合</p>
+        <p><b>属性相克：</b>火→冰→雷→火，暗↔圣</p>
+        <p><b>地形效果：</b>树林增加回避，山地增加防御</p>
+        <p><b>胜利条件：</b>消灭所有敌人或达成关卡目标</p>
+      </div>
+      <button id="howto-back">返回</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/renderer.js"></script>
+<script src="js/battle.js"></script>
+<script src="js/story.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>
