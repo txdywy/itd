@@ -29,6 +29,7 @@ class Game {
     // 标题画面
     document.getElementById('start-btn').onclick = () => {
       AudioSys.sfx('select');
+      AudioSys.playBGM();
       document.getElementById('title-screen').classList.add('hidden');
       this.startGame();
     };
@@ -40,6 +41,7 @@ class Game {
       continueBtn.id = 'continue-btn';
       continueBtn.onclick = () => {
         AudioSys.sfx('select');
+        AudioSys.playBGM();
         document.getElementById('title-screen').classList.add('hidden');
         this.loadGame();
       };
