@@ -59,6 +59,29 @@
       </div>
       <p class="footer">纯前端制作 | GitHub Pages部署</p>
     </div>
+
+    <!-- Intermission / Shop Screen -->
+    <div id="intermission-screen" class="hidden overlay">
+      <h2>营地与商店</h2>
+      <div class="intermission-content rpg-panel" style="width: 80%; max-width: 600px; padding: 20px; display: flex; gap: 20px;">
+        <div style="flex: 1;">
+          <h3 style="color: #e6d8a7; border-bottom: 1px solid #e6d8a7; margin-bottom: 10px; padding-bottom: 5px;">商店</h3>
+          <ul id="shop-list" style="list-style: none; margin-bottom: 15px; max-height: 150px; overflow-y: auto;">
+             <!-- Shop items injected here -->
+          </ul>
+          <p style="color: #e6d8a7; font-weight: bold;">持有金钱: <span id="party-gold" style="color: #ffd700;">0</span> G</p>
+        </div>
+        <div style="flex: 1; border-left: 1px solid rgba(255,255,255,0.2); padding-left: 20px;">
+          <h3 style="color: #e6d8a7; border-bottom: 1px solid #e6d8a7; margin-bottom: 10px; padding-bottom: 5px;">队伍</h3>
+          <select id="equip-char-select" style="width: 100%; padding: 5px; margin-bottom: 10px; background: #222; color: #fff; border: 1px solid #555;"></select>
+          <div id="equip-info" style="font-size: 14px; line-height: 1.6;">
+            <!-- Equipment info injected here -->
+          </div>
+        </div>
+      </div>
+      <button id="next-chapter-btn">进入下一章</button>
+    </div>
+
     <div id="howto-screen" class="hidden overlay">
       <h2>游戏说明</h2>
       <div class="howto-content rpg-panel">

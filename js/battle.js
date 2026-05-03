@@ -208,9 +208,13 @@ class BattleEngine {
              }
           }
 
-          // 经验值
+          // 经验值与金钱
           if (target.hp <= 0 && prevHp > 0 && attacker.team === 'player') {
             attacker.exp = (attacker.exp || 0) + (target.exp || 15);
+            // 队伍金钱增加
+            if (window.game && window.game.partyGold !== undefined) {
+               window.game.partyGold += target.gold || 0;
+            }
             // 升级检查
             const needed = attacker.level * 30;
             if (attacker.exp >= needed) {

@@ -739,6 +739,16 @@ const ELEMENT_ADV = {
   wind: { weak: 'thunder', strong: 'none' },
 };
 
+// 装备与物品定义
+const ITEMS = {
+  iron_sword: { id: 'iron_sword', name: '铁剑', type: 'weapon', atk: 3, price: 100 },
+  steel_sword: { id: 'steel_sword', name: '钢剑', type: 'weapon', atk: 8, price: 300 },
+  iron_claws: { id: 'iron_claws', name: '铁爪', type: 'weapon', atk: 4, price: 120 },
+  leather_armor: { id: 'leather_armor', name: '皮甲', type: 'armor', def: 2, price: 80 },
+  iron_armor: { id: 'iron_armor', name: '铁甲', type: 'armor', def: 5, price: 250 },
+  silk_robe: { id: 'silk_robe', name: '丝袍', type: 'armor', def: 1, mag: 3, price: 150 }
+};
+
 // 我方角色定义
 const PLAYER_CHARS = {
   xiahouyi: {
@@ -746,6 +756,7 @@ const PLAYER_CHARS = {
     level: 1, exp: 0,
     base: { hp: 80, mp: 60, atk: 8, def: 4, mag: 18, spd: 10 },
     skills: ['lihuo', 'tianshuang', 'duohun'],
+    equip: { weapon: 'iron_claws', armor: 'silk_robe' },
     desc: '西域河州镇少年，霍雍转世，精通火冰暗三系咒术'
   },
   bingli: {
@@ -753,6 +764,7 @@ const PLAYER_CHARS = {
     level: 3, exp: 0,
     base: { hp: 120, mp: 25, atk: 18, def: 12, mag: 5, spd: 14 },
     skills: ['youjian', 'miejian'],
+    equip: { weapon: 'iron_sword', armor: 'leather_armor' },
     desc: '千年剑使，守护霍雍的银发少女，手持幻剑煌熇'
   },
   fenglingsheng: {
@@ -760,6 +772,7 @@ const PLAYER_CHARS = {
     level: 2, exp: 0,
     base: { hp: 95, mp: 55, atk: 7, def: 6, mag: 15, spd: 11 },
     skills: ['lvfeng', 'heal'],
+    equip: { weapon: null, armor: 'silk_robe' },
     desc: '机灵聪慧的女贼，封寒月之母，擅长风系与治愈法术'
   },
   murongxuanji: {
@@ -767,6 +780,7 @@ const PLAYER_CHARS = {
     level: 2, exp: 0,
     base: { hp: 85, mp: 55, atk: 7, def: 5, mag: 17, spd: 10 },
     skills: ['wulei', 'leilie'],
+    equip: { weapon: null, armor: 'silk_robe' },
     desc: '天玄门弟子，精通雷系法术，性格直爽'
   },
   gulunde: {
@@ -774,18 +788,19 @@ const PLAYER_CHARS = {
     level: 3, exp: 0,
     base: { hp: 150, mp: 12, atk: 16, def: 16, mag: 2, spd: 7 },
     skills: ['zhanji', 'tuji'],
+    equip: { weapon: 'iron_sword', armor: 'iron_armor' },
     desc: '西域战士，力大无穷，是可靠的盾墙'
   }
 };
 
 // 敌人模板
 const ENEMY_TEMPLATES = {
-  xixia_soldier: { name: '西夏兵', sprite: 'xixia', class: 'warrior', hp: 60, mp: 0, atk: 12, def: 6, mag: 0, spd: 6, move: 3, skills: ['attack'], exp: 15, ai: 'aggressive' },
-  xixia_mage: { name: '西夏法师', sprite: 'xixia', class: 'mage', hp: 45, mp: 30, atk: 5, def: 3, mag: 12, spd: 7, move: 3, skills: ['lihuo'], exp: 20, ai: 'magic' },
-  yaomo_wolf: { name: '蚀狼', sprite: 'yaomo', class: 'warrior', hp: 80, mp: 0, atk: 14, def: 5, mag: 0, spd: 10, move: 4, skills: ['attack'], exp: 25, ai: 'aggressive' },
-  yaomo_demon: { name: '幽魔', sprite: 'yaomo', class: 'mage', hp: 70, mp: 40, atk: 6, def: 6, mag: 14, spd: 8, move: 3, skills: ['duohun'], exp: 35, ai: 'magic' },
-  boss_huangfu: { name: '皇甫申', sprite: 'huangfushen', class: 'mage', hp: 200, mp: 80, atk: 15, def: 10, mag: 20, spd: 12, move: 3, skills: ['duohun', 'mojin'], exp: 100, ai: 'boss', boss: true },
-  boss_luohou: { name: '罗睺使者', sprite: 'luohou', class: 'mage', hp: 350, mp: 120, atk: 20, def: 15, mag: 25, spd: 10, move: 3, skills: ['mojin', 'duohun', 'lihuo'], exp: 200, ai: 'boss', boss: true },
+  xixia_soldier: { name: '西夏兵', sprite: 'xixia', class: 'warrior', hp: 60, mp: 0, atk: 12, def: 6, mag: 0, spd: 6, move: 3, skills: ['attack'], exp: 15, gold: 50, ai: 'aggressive' },
+  xixia_mage: { name: '西夏法师', sprite: 'xixia', class: 'mage', hp: 45, mp: 30, atk: 5, def: 3, mag: 12, spd: 7, move: 3, skills: ['lihuo'], exp: 20, gold: 60, ai: 'magic' },
+  yaomo_wolf: { name: '蚀狼', sprite: 'yaomo', class: 'warrior', hp: 80, mp: 0, atk: 14, def: 5, mag: 0, spd: 10, move: 4, skills: ['attack'], exp: 25, gold: 80, ai: 'aggressive' },
+  yaomo_demon: { name: '幽魔', sprite: 'yaomo', class: 'mage', hp: 70, mp: 40, atk: 6, def: 6, mag: 14, spd: 8, move: 3, skills: ['duohun'], exp: 35, gold: 100, ai: 'magic' },
+  boss_huangfu: { name: '皇甫申', sprite: 'huangfushen', class: 'mage', hp: 200, mp: 80, atk: 15, def: 10, mag: 20, spd: 12, move: 3, skills: ['duohun', 'mojin'], exp: 100, gold: 500, ai: 'boss', boss: true },
+  boss_luohou: { name: '罗睺使者', sprite: 'luohou', class: 'mage', hp: 350, mp: 120, atk: 20, def: 15, mag: 25, spd: 10, move: 3, skills: ['mojin', 'duohun', 'lihuo'], exp: 200, gold: 1000, ai: 'boss', boss: true },
 };
 
 // 地图定义 20x15
@@ -840,14 +855,16 @@ const MAPS = [
       "19999900000009999991",
       "11111111111111111111"
     ],
-    playerStart: [{x:3,y:7},{x:4,y:8},{x:3,y:9},{x:2,y:8}],
+    playerStart: [{x:3,y:12},{x:4,y:13},{x:5,y:12}],
     enemies: [
-      {type:'yaomo_wolf',x:15,y:5},{type:'yaomo_wolf',x:16,y:6},
-      {type:'yaomo_demon',x:15,y:7},{type:'yaomo_wolf',x:16,y:8}
+      {type:'yaomo_wolf',x:6,y:6},{type:'yaomo_wolf',x:13,y:6},
+      {type:'yaomo_demon',x:9,y:3},{type:'yaomo_demon',x:10,y:3},
+      {type:'boss_huangfu',x:10,y:1}
     ],
-    win: 'kill_all',
+    win: 'kill_boss',
     storyStart: 'ch2_start',
-    storyEnd: 'ch2_end'
+    storyEnd: 'ch2_end',
+    music: 'dungeon'
   },
   // 第三章：兰州风波
   {

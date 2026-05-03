@@ -9,6 +9,8 @@ class Game {
     this.state = 'title';
     this.levelIndex = 0;
     this.party = [];
+    this.partyGold = 200;
+    this.inventory = [];
     this.hoverTile = null;
     this.selectedSkill = null;
 
@@ -103,6 +105,165 @@ class Game {
     document.getElementById('dialogue-box').addEventListener('click', () => {
       if (this.story.isActive) this.story.advance();
     });
+    document.getElementById('next-chapter-btn').onclick = () => {
+      AudioSys.sfx('select');
+      document.getElementById('intermission-screen').classList.add('hidden');
+      this.startLevel(this.levelIndex);
+    };
+    
+    // Bind equip char select
+    document.getElementById('equip-char-select').onchange = (e) => {
+      this.renderEquipInfo(e.target.value);
+    };
+  }
+
+  showIntermissionScreen() {
+    this.state = 'intermission';
+    this.battle = null; // Clear battle state
+    document.getElementById('intermission-screen').classList.remove('hidden');
+    this.renderShop();
+    this.renderEquipSelect();
+  }
+
+  renderShop() {
+    document.getElementById('party-gold').textContent = this.partyGold;
+    const shopList = document.getElementById('shop-list');
+    shopList.innerHTML = '';
+    for (const [id, item] of Object.entries(ITEMS)) {
+      const li = document.createElement('li');
+      li.style.marginBottom = '8px';
+      li.style.display = 'flex';
+      li.style.justifyContent = 'space-between';
+      li.style.alignItems = 'center';
+      
+      const info = document.createElement('div');
+      let statText = item.type === 'weapon' ? `ATK+${item.atk}` : `DEF+${item.def}${item.mag ? ` MAG+${item.mag}` : ''}`;
+      info.innerHTML = `<span style="color: #fff;">${item.name}</span> <span style="color: #aaa; font-size: 12px;">(${statText})</span>`;
+      
+      const buyBtn = document.createElement('button');
+      buyBtn.textContent = `${item.price}G`;
+      buyBtn.style.padding = '4px 8px';
+      buyBtn.style.background = '#333';
+      buyBtn.style.color = '#ffd700';
+      buyBtn.style.border = '1px solid #666';
+      buyBtn.style.cursor = 'pointer';
+      
+      buyBtn.onclick = () => {
+        if (this.partyGold >= item.price) {
+          this.partyGold -= item.price;
+          this.inventory.push(id);
+          AudioSys.sfx('select');
+          this.renderShop();
+          this.renderEquipInfo(document.getElementById('equip-char-select').value);
+        } else {
+          AudioSys.sfx('lose'); // error sound
+        }
+      };
+      
+      li.appendChild(info);
+      li.appendChild(buyBtn);
+      shopList.appendChild(li);
+    }
+  }
+
+  renderEquipSelect() {
+    const sel = document.getElementById('equip-char-select');
+    sel.innerHTML = '';
+    for (const p of this.party) {
+      const opt = document.createElement('option');
+      opt.value = p.key;
+      opt.textContent = p.name;
+      sel.appendChild(opt);
+    }
+    if (this.party.length > 0) {
+      this.renderEquipInfo(this.party[0].key);
+    }
+  }
+
+  renderEquipInfo(charKey) {
+    const char = this.party.find(p => p.key === charKey);
+    if (!char) return;
+    
+    const infoDiv = document.getElementById('equip-info');
+    infoDiv.innerHTML = '';
+    
+    const renderSlot = (slotName, type) => {
+      const equipId = char.equip[type];
+      const equipName = equipId ? ITEMS[equipId].name : '无';
+      
+      const div = document.createElement('div');
+      div.style.marginBottom = '10px';
+      div.innerHTML = `<div style="color: #aaa; font-size: 12px;">${slotName}</div>
+                       <div style="display: flex; justify-content: space-between; align-items: center;">
+                         <span style="color: #fff;">${equipName}</span>
+                       </div>`;
+                       
+      // Dropdown to equip from inventory
+      const equipSel = document.createElement('select');
+      equipSel.style.background = '#222';
+      equipSel.style.color = '#fff';
+      equipSel.style.border = '1px solid #555';
+      
+      const optNone = document.createElement('option');
+      optNone.value = '';
+      optNone.textContent = '卸下';
+      equipSel.appendChild(optNone);
+      
+      const availableItems = Array.from(new Set(this.inventory)).filter(id => ITEMS[id].type === type);
+      for (const id of availableItems) {
+        const opt = document.createElement('option');
+        opt.value = id;
+        opt.textContent = ITEMS[id].name;
+        if (equipId === id) opt.selected = true;
+        equipSel.appendChild(opt);
+      }
+      
+      equipSel.onchange = (e) => {
+        const newId = e.target.value;
+        // return current equip to inventory
+        if (char.equip[type]) {
+          this.inventory.push(char.equip[type]);
+        }
+        // equip new item
+        if (newId) {
+          char.equip[type] = newId;
+          // remove one from inventory
+          const idx = this.inventory.indexOf(newId);
+          if (idx > -1) this.inventory.splice(idx, 1);
+        } else {
+          char.equip[type] = null;
+        }
+        AudioSys.sfx('select');
+        this.renderEquipInfo(charKey);
+        this.saveGame();
+      };
+      
+      div.querySelector('div:last-child').appendChild(equipSel);
+      infoDiv.appendChild(div);
+    };
+    
+    renderSlot('武器', 'weapon');
+    renderSlot('防具', 'armor');
+    
+    // Show stats
+    const statsDiv = document.createElement('div');
+    statsDiv.style.marginTop = '15px';
+    statsDiv.style.paddingTop = '10px';
+    statsDiv.style.borderTop = '1px solid rgba(255,255,255,0.2)';
+    
+    let wAtk = 0, aDef = 0, aMag = 0;
+    if (char.equip.weapon) wAtk = ITEMS[char.equip.weapon].atk || 0;
+    if (char.equip.armor) {
+       aDef = ITEMS[char.equip.armor].def || 0;
+       aMag = ITEMS[char.equip.armor].mag || 0;
+    }
+    
+    statsDiv.innerHTML = `
+      <div style="display:flex; justify-content: space-between;"><span>ATK</span> <span>${char.base.atk} <span style="color:#6f6;">+${wAtk}</span></span></div>
+      <div style="display:flex; justify-content: space-between;"><span>DEF</span> <span>${char.base.def} <span style="color:#6f6;">+${aDef}</span></span></div>
+      <div style="display:flex; justify-content: space-between;"><span>MAG</span> <span>${char.base.mag} <span style="color:#6f6;">+${aMag}</span></span></div>
+    `;
+    infoDiv.appendChild(statsDiv);
   }
 
   startGame() {
@@ -151,6 +312,17 @@ class Game {
       for (const k of ['hp','mp','atk','def','mag','spd']) {
         stats[k] = partyChar.base[k] + Math.floor((tmpl.growth[k] || 0) * (lv - 1) * 0.8);
       }
+      
+      // Calculate equipment bonuses
+      let eqAtk = 0, eqDef = 0, eqMag = 0;
+      if (partyChar.equip && partyChar.equip.weapon && ITEMS[partyChar.equip.weapon]) {
+         eqAtk += ITEMS[partyChar.equip.weapon].atk || 0;
+      }
+      if (partyChar.equip && partyChar.equip.armor && ITEMS[partyChar.equip.armor]) {
+         eqDef += ITEMS[partyChar.equip.armor].def || 0;
+         eqMag += ITEMS[partyChar.equip.armor].mag || 0;
+      }
+
       const p = {
         id: partyChar.id,
         key: partyChar.key,
@@ -160,13 +332,16 @@ class Game {
         level: lv,
         exp: partyChar.exp,
         base: clone(partyChar.base),
+        equip: clone(partyChar.equip),
         skills: [...partyChar.skills],
         x: mapData.playerStart[i].x,
         y: mapData.playerStart[i].y,
         hp: stats.hp, maxHp: stats.hp,
         mp: stats.mp, maxMp: stats.mp,
-        atk: stats.atk, def: stats.def,
-        mag: stats.mag, spd: stats.spd,
+        atk: stats.atk + eqAtk, 
+        def: stats.def + eqDef,
+        mag: stats.mag + eqMag, 
+        spd: stats.spd,
         move: tmpl.move,
         team: 'player',
         acted: false,
@@ -462,6 +637,7 @@ class Game {
           pu.level = bu.level;
           pu.exp = bu.exp;
           pu.base = clone(bu.base);
+          pu.equip = clone(bu.equip);
         }
       }
     }
@@ -469,10 +645,22 @@ class Game {
     const mapData = MAPS[this.levelIndex];
     if (mapData.storyEnd) {
       this.story.start(mapData.storyEnd, () => {
-        this.showVictoryScreen();
+        this.levelIndex++;
+        this.saveGame();
+        if (this.levelIndex >= MAPS.length) {
+          this.showVictoryScreen();
+        } else {
+          this.showIntermissionScreen();
+        }
       });
     } else {
-      this.showVictoryScreen();
+      this.levelIndex++;
+      this.saveGame();
+      if (this.levelIndex >= MAPS.length) {
+        this.showVictoryScreen();
+      } else {
+        this.showIntermissionScreen();
+      }
     }
   }
 
@@ -501,11 +689,14 @@ class Game {
   saveGame() {
     const saveData = {
       levelIndex: this.levelIndex,
+      partyGold: this.partyGold,
+      inventory: this.inventory,
       party: this.party.map(p => ({
         key: p.key,
         level: p.level,
         exp: p.exp,
-        base: p.base
+        base: p.base,
+        equip: p.equip
       }))
     };
     localStorage.setItem('tdj_save', JSON.stringify(saveData));
@@ -516,6 +707,8 @@ class Game {
     if (!saved) return;
     const data = JSON.parse(saved);
     this.levelIndex = data.levelIndex;
+    this.partyGold = data.partyGold || 0;
+    this.inventory = data.inventory || [];
     this.party = [];
     for (const pd of data.party) {
       const tmpl = PLAYER_CHARS[pd.key];
@@ -525,6 +718,7 @@ class Game {
       c.level = pd.level;
       c.exp = pd.exp;
       c.base = pd.base;
+      c.equip = pd.equip || { weapon: null, armor: null };
       c.team = 'player';
       c.acted = false;
       c.id = 'p_' + pd.key;
