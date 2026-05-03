@@ -15,8 +15,100 @@ class Renderer {
     this.octx.imageSmoothingEnabled = false;
     this.animFrame = 0;
     this.effects = [];
-    this.camera = { x: 0, y: 0 };
+    this.envParticles = [];
+    this.ambientColor = 'rgba(10, 10, 20, 0.4)';
+    this.camera = { x: 0, y: 0, targetX: 0, targetY: 0 };
     this.loadSprites();
+    this.initEnv();
+  }
+
+  initEnv() {
+    this.envParticles = [];
+    for(let i=0; i<40; i++) {
+      this.envParticles.push({
+        x: Math.random() * 320,
+        y: Math.random() * 240,
+        speedX: (Math.random() - 0.5) * 0.5,
+        speedY: (Math.random() - 0.5) * 0.5 - 0.2,
+        size: Math.random() * 1.5 + 0.5,
+        depth: Math.random() * 0.5 + 0.5
+      });
+    }
+  }
+
+  drawEnvParticles() {
+    this.octx.fillStyle = 'rgba(255,230,180,0.3)';
+    for(const p of this.envParticles) {
+      // parallax effect based on camera
+      const px = (p.x + this.camera.x * p.depth * 0.5) % 320;
+      const py = (p.y + this.camera.y * p.depth * 0.5) % 240;
+      const drawX = px < 0 ? px + 320 : px;
+      const drawY = py < 0 ? py + 240 : py;
+      this.octx.globalAlpha = Math.sin(this.animFrame * 0.05 + p.x) * 0.5 + 0.5;
+      this.octx.fillRect(drawX, drawY, p.size, p.size);
+    }
+    this.octx.globalAlpha = 1.0;
+  }
+
+  drawLighting(units) {
+    const lightCanvas = document.createElement('canvas');
+    lightCanvas.width = 320; lightCanvas.height = 240;
+    const lctx = lightCanvas.getContext('2d');
+    
+    // Fill ambient dark
+    lctx.fillStyle = this.ambientColor;
+    lctx.fillRect(0, 0, 320, 240);
+    
+    // Cut out lights
+    lctx.globalCompositeOperation = 'destination-out';
+    
+    // Units cast soft light
+    for(const u of units) {
+      if (u.hp <= 0) continue;
+      const px = u.x * 16 + 8;
+      const py = u.y * 16 + 8;
+      const grad = lctx.createRadialGradient(px, py, 0, px, py, 40);
+      grad.addColorStop(0, 'rgba(255,255,255,1)');
+      grad.addColorStop(0.5, 'rgba(255,255,255,0.5)');
+      grad.addColorStop(1, 'rgba(255,255,255,0)');
+      lctx.fillStyle = grad;
+      lctx.beginPath();
+      lctx.arc(px, py, 40, 0, Math.PI * 2);
+      lctx.fill();
+    }
+    
+    // Effects cast bright light
+    for(const e of this.effects) {
+      const px = e.x * 16 + 8;
+      const py = e.y * 16 + 8;
+      let radius = 60;
+      if (e.type === 'magic') radius = 80;
+      const grad = lctx.createRadialGradient(px, py, 0, px, py, radius);
+      grad.addColorStop(0, 'rgba(255,255,255,1)');
+      grad.addColorStop(0.3, 'rgba(255,255,255,0.8)');
+      grad.addColorStop(1, 'rgba(255,255,255,0)');
+      lctx.fillStyle = grad;
+      lctx.beginPath();
+      lctx.arc(px, py, radius, 0, Math.PI * 2);
+      lctx.fill();
+    }
+    
+    this.octx.drawImage(lightCanvas, 0, 0);
+  }
+
+  drawPostProcess() {
+    // Vignette
+    const grad = this.octx.createRadialGradient(160, 120, 100, 160, 120, 220);
+    grad.addColorStop(0, 'rgba(0,0,0,0)');
+    grad.addColorStop(1, 'rgba(0,0,0,0.6)');
+    this.octx.fillStyle = grad;
+    this.octx.fillRect(0, 0, 320, 240);
+    
+    // Scanlines (subtle HD-2D texture)
+    this.octx.fillStyle = 'rgba(0,0,0,0.1)';
+    for(let y = 0; y < 240; y += 2) {
+      this.octx.fillRect(0, y, 320, 1);
+    }
   }
 
   loadSprites() {
@@ -261,14 +353,38 @@ class Renderer {
     this.effects.push({ type, x, y, life: opts.life || 20, maxLife: opts.life || 20, ...opts });
   }
 
-  render() {
-    // 离屏渲染320x240，放大到640x480
+  render(camX = 0, camY = 0) {
+    // 离屏渲染320x240，放大到640x480 并带有摄像机平移和微距
     this.ctx.clearRect(0, 0, 640, 480);
+    this.ctx.save();
+    
+    // Zoom and Pan effect (HD-2D style depth)
+    const zoom = 1.05;
+    this.ctx.translate(320, 240); // center
+    this.ctx.scale(zoom, zoom);
+    // Add smooth mouse-based panning
+    this.ctx.translate(-320 + camX, -240 + camY);
+    
     this.ctx.drawImage(this.offscreen, 0, 0, 640, 480);
+    this.ctx.restore();
   }
 
   tick() {
     this.animFrame++;
+    
+    // Update camera smoothing
+    this.camera.x += (this.camera.targetX - this.camera.x) * 0.05;
+    this.camera.y += (this.camera.targetY - this.camera.y) * 0.05;
+
+    // Update env particles
+    for(const p of this.envParticles) {
+      p.x += p.speedX;
+      p.y += p.speedY;
+      if (p.x < 0) p.x += 320;
+      if (p.x > 320) p.x -= 320;
+      if (p.y < 0) p.y += 240;
+      if (p.y > 240) p.y -= 240;
+    }
   }
 }
 

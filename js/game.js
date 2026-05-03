@@ -201,8 +201,21 @@ class Game {
 
   onCanvasMove(e) {
     const rect = this.canvas.getBoundingClientRect();
-    const x = Math.floor((e.clientX - rect.left) / 32);
-    const y = Math.floor((e.clientY - rect.top) / 32);
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    
+    // Convert scaled coordinates back to tile coordinates (640x480 screen -> 320x240 map logic)
+    // The zoom is 1.05 and centered, let's keep tile hover approx for now, or just map linearly.
+    // The previous math was based on 640x480 mapped directly to 20x15 tiles (32px per tile).
+    // Let's adjust mouse tracking for camera pan:
+    if (this.renderer) {
+      this.renderer.camera.targetX = (mx - 320) * 0.03;
+      this.renderer.camera.targetY = (my - 240) * 0.03;
+    }
+
+    const x = Math.floor(mx / 32);
+    const y = Math.floor(my / 32);
+    
     const tooltip = document.getElementById('tile-tooltip');
     if (x >= 0 && y >= 0 && x < 20 && y < 15) {
       this.hoverTile = { x, y };
@@ -212,8 +225,8 @@ class Game {
         const info = tileInfo[tile];
         if (info) {
           tooltip.textContent = `${info.name} 防+${info.def} 回+${info.avoid}%`;
-          tooltip.style.left = (e.clientX - rect.left + 12) + 'px';
-          tooltip.style.top = (e.clientY - rect.top - 30) + 'px';
+          tooltip.style.left = (mx + 12) + 'px';
+          tooltip.style.top = (my - 30) + 'px';
           tooltip.classList.remove('hidden');
         }
       } else {
@@ -232,8 +245,10 @@ class Game {
     if (this.state === 'battle_anim') return;
 
     const rect = this.canvas.getBoundingClientRect();
-    const tx = Math.floor((e.clientX - rect.left) / 32);
-    const ty = Math.floor((e.clientY - rect.top) / 32);
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    const tx = Math.floor(mx / 32);
+    const ty = Math.floor(my / 32);
 
     if (this.state === 'battle_idle') {
       const unit = this.battle.getUnitAt(tx, ty);
@@ -529,6 +544,7 @@ class Game {
       if (this.state === 'battle_selected') hl = b.moveRange;
       if (this.state === 'battle_targeting') ar = b.attackRange;
       this.renderer.drawMap(b.map, hl, ar, this.hoverTile);
+      this.renderer.drawEnvParticles();
       this.renderer.drawEffects();
 
       // 绘制单位（按Y轴排序）
@@ -538,6 +554,11 @@ class Game {
         const isActed = u.acted && u.team === 'player';
         this.renderer.drawUnit(u, isSelected, isActed);
       }
+      
+      // 添加HD-2D光影和后期处理
+      this.renderer.drawLighting(b.allUnits);
+      this.renderer.drawPostProcess();
+      
     } else if (this.state === 'title') {
       // 标题画面背景动画 - 飘动的像素粒子
       const ctx = this.renderer.octx;
@@ -561,9 +582,10 @@ class Game {
           ctx.globalAlpha = 1;
         }
       });
+      this.renderer.drawPostProcess(); // Apply vignette to title too
     }
 
-    this.renderer.render();
+    this.renderer.render(this.renderer.camera.x, this.renderer.camera.y);
     requestAnimationFrame(this.loop);
   }
 }
