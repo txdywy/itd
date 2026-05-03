@@ -33,6 +33,16 @@ class BattleEngine {
     return u && u !== movingUnit && u.hp > 0;
   }
 
+  getPopupPoint(renderer, x, y) {
+    const el = document.getElementById('game-container');
+    const rect = el.getBoundingClientRect();
+    const center = renderer.tileCenter(x, y);
+    return {
+      x: center.x * (rect.width / renderer.canvas.width),
+      y: (center.y - 28) * (rect.height / renderer.canvas.height),
+    };
+  }
+
   // BFS计算移动范围
   calcMoveRange(unit) {
     const range = [];
@@ -187,14 +197,13 @@ class BattleEngine {
       if (result.isHit) {
         const prevHp = target.hp;
         target.hp = Math.max(0, Math.min(target.maxHp, target.hp - result.dmg));
-        const el = document.getElementById('game-container');
-        const rect = el.getBoundingClientRect();
-        const screenX = rect.left + target.x * 32 + 10;
-        const screenY = rect.top + target.y * 32;
+        const popup = this.getPopupPoint(renderer, target.x, target.y);
+        const screenX = popup.x;
+        const screenY = popup.y;
         if (result.dmg > 0) {
-          renderer.addEffect('damage', target.x, target.y, { value: result.dmg, life: 30 });
+          renderer.addEffect('damage', target.x, target.y, { value: result.dmg, life: 42 });
           showDamage(screenX, screenY, result.isCrit ? `暴击 ${result.dmg}` : `${result.dmg}`);
-          renderer.addEffect('slash', target.x, target.y, { life: 10 });
+          renderer.addEffect('slash', target.x, target.y, { life: 28 });
           AudioSys.sfx('hit');
           
           // Defender turns to face attacker if they survive
@@ -228,20 +237,19 @@ class BattleEngine {
             }
           }
         } else if (result.dmg < 0) {
-          renderer.addEffect('damage', target.x, target.y, { value: Math.abs(result.dmg), heal: true, life: 30 });
+          renderer.addEffect('damage', target.x, target.y, { value: Math.abs(result.dmg), heal: true, life: 42 });
           showDamage(screenX, screenY, `+${Math.abs(result.dmg)}`, true);
           AudioSys.sfx('heal');
         }
       } else {
-        const el = document.getElementById('game-container');
-        const rect = el.getBoundingClientRect();
-        showDamage(rect.left + target.x * 32 + 10, rect.top + target.y * 32, 'MISS');
+        const popup = this.getPopupPoint(renderer, target.x, target.y);
+        showDamage(popup.x, popup.y, 'MISS');
       }
     }
 
     // 特效
     if (skill.type === 'magic') {
-      renderer.addEffect('magic', targetX, targetY, { element: skill.element, life: 20 });
+      renderer.addEffect('magic', targetX, targetY, { element: skill.element, life: skill.area > 1 ? 56 : 44 });
     }
 
     // 智能反击 (Counter-attack)
@@ -266,22 +274,20 @@ class BattleEngine {
           const counter = this.calcDamage(target, attacker, counterSkill);
           if (counter.isHit) {
             attacker.hp = Math.max(0, attacker.hp - counter.dmg);
-            renderer.addEffect('damage', attacker.x, attacker.y, { value: counter.dmg, life: 30 });
-            const el = document.getElementById('game-container');
-            const rect = el.getBoundingClientRect();
-            showDamage(rect.left + attacker.x * 32 + 10, rect.top + attacker.y * 32, counter.isCrit ? `反击暴击 ${counter.dmg}` : `反击 ${counter.dmg}`);
+            renderer.addEffect('damage', attacker.x, attacker.y, { value: counter.dmg, life: 42 });
+            const popup = this.getPopupPoint(renderer, attacker.x, attacker.y);
+            showDamage(popup.x, popup.y, counter.isCrit ? `反击暴击 ${counter.dmg}` : `反击 ${counter.dmg}`);
             
             if (cSkill.type === 'magic') {
-              renderer.addEffect('magic', attacker.x, attacker.y, { element: cSkill.element, life: 20 });
+              renderer.addEffect('magic', attacker.x, attacker.y, { element: cSkill.element, life: cSkill.area > 1 ? 56 : 44 });
               AudioSys.sfx('magic');
             } else {
-              renderer.addEffect('slash', attacker.x, attacker.y, { life: 10 });
+              renderer.addEffect('slash', attacker.x, attacker.y, { life: 28 });
               AudioSys.sfx('hit');
             }
           } else {
-            const el = document.getElementById('game-container');
-            const rect = el.getBoundingClientRect();
-            showDamage(rect.left + attacker.x * 32 + 10, rect.top + attacker.y * 32, '反击 MISS');
+            const popup = this.getPopupPoint(renderer, attacker.x, attacker.y);
+            showDamage(popup.x, popup.y, '反击 MISS');
           }
         }
       }

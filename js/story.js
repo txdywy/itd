@@ -37,33 +37,33 @@ class StorySystem {
     this.nameEl.textContent = speakerData.name;
     this.portraitEl.innerHTML = '';
     if (speakerData.sprite) {
-      const img = document.createElement('canvas');
-      img.width = 96; img.height = 96;
-      const ctx = img.getContext('2d');
-      ctx.imageSmoothingEnabled = false;
-      const renderer = window.gameRenderer;
-      let imgData = null;
-      if (renderer) {
-        // Try portrait cache first (dedicated portraits)
-        if (renderer.portraitCache && renderer.portraitCache[speakerData.sprite]) {
-           imgData = renderer.portraitCache[speakerData.sprite];
-        }
-        // Fallback to first sprite frame
-        if (!imgData && renderer.spriteCache && renderer.spriteCache[speakerData.sprite]) {
-           const frames = renderer.spriteCache[speakerData.sprite];
-           if (Array.isArray(frames)) imgData = frames[0];
-           else imgData = frames;
-        }
-      }
-      if (imgData) {
-        ctx.drawImage(imgData, 0, 0, imgData.width, imgData.height, 0, 0, 96, 96);
-      } else {
-        ctx.fillStyle = '#333';
-        ctx.fillRect(0, 0, 96, 96);
-      }
+      const img = document.createElement('img');
+      img.src = `assets/portraits/${speakerData.sprite}.png`;
+      img.alt = speakerData.name;
+      img.onload = () => this.portraitEl.classList.add('portrait-loaded');
+      img.onerror = () => this.renderFallbackPortrait(speakerData.sprite);
       this.portraitEl.appendChild(img);
     }
     this.typeText(line.text);
+  }
+
+  renderFallbackPortrait(spriteName) {
+    this.portraitEl.innerHTML = '';
+    const img = document.createElement('canvas');
+    img.width = 192;
+    img.height = 192;
+    const ctx = img.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+    const renderer = window.gameRenderer;
+    let imgData = null;
+    if (renderer?.portraitCache?.[spriteName]) imgData = renderer.portraitCache[spriteName];
+    if (!imgData && renderer?.spriteCache?.[spriteName]) imgData = renderer.spriteCache[spriteName][0];
+    if (imgData) ctx.drawImage(imgData, 0, 0, imgData.width, imgData.height, 0, 0, 192, 192);
+    else {
+      ctx.fillStyle = '#15151d';
+      ctx.fillRect(0, 0, 192, 192);
+    }
+    this.portraitEl.appendChild(img);
   }
 
   typeText(text) {
@@ -99,7 +99,7 @@ class StorySystem {
   }
 
   getSpeakerInfo(key) {
-    if (key === 'narrator') return { name: '旁白', sprite: null };
+    if (key === 'narrator') return { name: '旁白', sprite: 'narrator' };
     if (key === 'xiahouyi') return { name: '夏侯仪', sprite: 'xiahouyi' };
     if (key === 'bingli') return { name: '冰璃', sprite: 'bingli' };
     if (key === 'fenglingsheng') return { name: '封铃笙', sprite: 'fenglingsheng' };

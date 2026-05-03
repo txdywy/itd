@@ -383,30 +383,28 @@ class Game {
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
     
-    // Convert scaled coordinates back to tile coordinates (640x480 screen -> 320x240 map logic)
-    // The zoom is 1.05 and centered, let's keep tile hover approx for now, or just map linearly.
-    // The previous math was based on 640x480 mapped directly to 20x15 tiles (32px per tile).
-    // Let's adjust mouse tracking for camera pan:
     if (this.renderer) {
-      this.renderer.camera.targetX = (mx - 320) * 0.03;
-      this.renderer.camera.targetY = (my - 240) * 0.03;
+      this.renderer.camera.targetX = (mx - rect.width / 2) * 0.03;
+      this.renderer.camera.targetY = (my - rect.height / 2) * 0.03;
     }
 
-    const x = Math.floor(mx / 32);
-    const y = Math.floor(my / 32);
+    const tile = this.renderer.screenToTile(
+      mx * (this.canvas.width / rect.width),
+      my * (this.canvas.height / rect.height)
+    );
     
     const tooltip = document.getElementById('tile-tooltip');
-    if (x >= 0 && y >= 0 && x < 20 && y < 15) {
-      this.hoverTile = { x, y };
+    if (tile) {
+      const { x, y } = tile;
+      this.hoverTile = tile;
       // 显示地形tooltip
       if (this.battle && this.state !== 'title' && this.state !== 'dialogue' && !this.battle.winner) {
         const tile = parseInt(this.battle.map.tiles[y][x]);
         const info = tileInfo[tile];
         if (info) {
           tooltip.textContent = `${info.name} 防+${info.def} 回+${info.avoid}%`;
-          tooltip.style.left = (mx + 12) + 'px';
-          tooltip.style.top = (my - 30) + 'px';
           tooltip.classList.remove('hidden');
+          this.positionTileTooltip(tooltip, mx, my, x, y, rect);
         }
       } else {
         tooltip.classList.add('hidden');
@@ -426,8 +424,13 @@ class Game {
     const rect = this.canvas.getBoundingClientRect();
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
-    const tx = Math.floor(mx / 32);
-    const ty = Math.floor(my / 32);
+    const tile = this.renderer.screenToTile(
+      mx * (this.canvas.width / rect.width),
+      my * (this.canvas.height / rect.height)
+    );
+    if (!tile) return;
+    const tx = tile.x;
+    const ty = tile.y;
 
     if (this.state === 'battle_idle') {
       const unit = this.battle.getUnitAt(tx, ty);
@@ -441,6 +444,13 @@ class Game {
       // 点击移动位置
       const canMove = this.battle.moveRange.find(r => r.x === tx && r.y === ty);
       if (canMove) {
+        if (this.battle.selectedUnit.x === tx && this.battle.selectedUnit.y === ty) {
+          AudioSys.sfx('select');
+          this.battle.moveRange = [];
+          this.state = 'battle_moved';
+          this.showActionMenu();
+          return;
+        }
         this.moveUnit(this.battle.selectedUnit, tx, ty);
         return;
       }
@@ -469,10 +479,85 @@ class Game {
     }
   }
 
+  positionTileTooltip(tooltip, mouseX, mouseY, tileX, tileY, canvasRect) {
+    const container = document.getElementById('game-container');
+    const containerRect = container.getBoundingClientRect();
+    const scaleX = canvasRect.width / this.canvas.width;
+    const scaleY = canvasRect.height / this.canvas.height;
+    const tileScreenX = tileX * TILE * scaleX;
+    const tileScreenY = tileY * TILE * scaleY;
+    const tileScreenW = TILE * scaleX;
+    const tileScreenH = TILE * scaleY;
+    const margin = 12;
+    const menuGap = 12;
+    const tooltipW = tooltip.offsetWidth || 150;
+    const tooltipH = tooltip.offsetHeight || 34;
+
+    const blockedRects = [
+      { x: tileScreenX - 4, y: tileScreenY - 4, w: tileScreenW + 8, h: tileScreenH + 8 },
+    ];
+
+    for (const el of [this.uiAction, this.uiMagic, this.uiInfo, this.endTurnBtn]) {
+      if (!el || el.classList.contains('hidden')) continue;
+      const r = el.getBoundingClientRect();
+      blockedRects.push({
+        x: r.left - containerRect.left - menuGap,
+        y: r.top - containerRect.top - menuGap,
+        w: r.width + menuGap * 2,
+        h: r.height + menuGap * 2,
+      });
+    }
+
+    const dialogue = document.getElementById('dialogue-box');
+    if (dialogue && !dialogue.classList.contains('hidden')) {
+      const r = dialogue.getBoundingClientRect();
+      blockedRects.push({
+        x: r.left - containerRect.left - menuGap,
+        y: r.top - containerRect.top - menuGap,
+        w: r.width + menuGap * 2,
+        h: r.height + menuGap * 2,
+      });
+    }
+
+    const candidates = [
+      { x: mouseX + 18, y: mouseY + 18 },
+      { x: mouseX + 18, y: mouseY - tooltipH - 18 },
+      { x: mouseX - tooltipW - 18, y: mouseY + 18 },
+      { x: mouseX - tooltipW - 18, y: mouseY - tooltipH - 18 },
+      { x: tileScreenX + tileScreenW + 10, y: tileScreenY + 4 },
+      { x: tileScreenX - tooltipW - 10, y: tileScreenY + 4 },
+    ];
+
+    const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+    const intersects = (a, b) =>
+      a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+
+    let best = candidates[0];
+    let bestScore = Infinity;
+    for (const candidate of candidates) {
+      const x = clamp(candidate.x, margin, containerRect.width - tooltipW - margin);
+      const y = clamp(candidate.y, margin, containerRect.height - tooltipH - margin);
+      const rect = { x, y, w: tooltipW, h: tooltipH };
+      const overlapPenalty = blockedRects.some(blocked => intersects(rect, blocked)) ? 10000 : 0;
+      const cursorPenalty = Math.abs(x - mouseX) + Math.abs(y - mouseY);
+      const score = overlapPenalty + cursorPenalty;
+      if (score < bestScore) {
+        bestScore = score;
+        best = { x, y };
+      }
+    }
+
+    tooltip.style.left = `${Math.round(best.x)}px`;
+    tooltip.style.top = `${Math.round(best.y)}px`;
+  }
+
   selectUnit(unit) {
     AudioSys.sfx('select');
     this.battle.selectedUnit = unit;
     this.battle.moveRange = this.battle.calcMoveRange(unit);
+    if (!this.battle.moveRange.find(r => r.x === unit.x && r.y === unit.y)) {
+      this.battle.moveRange.unshift({ x: unit.x, y: unit.y });
+    }
     this.battle.attackRange = [];
     this.state = 'battle_selected';
     this.updateUnitInfo(unit);
@@ -782,24 +867,24 @@ class Game {
       const ctx = this.renderer.octx;
       const t = this.renderer.animFrame;
       for (let i = 0; i < 30; i++) {
-        const px = ((i * 37 + t * (0.5 + (i % 3) * 0.3)) % 320);
-        const py = ((i * 53 + Math.sin(t * 0.02 + i) * 20) % 240);
+        const px = ((i * 93 + t * (0.8 + (i % 3) * 0.5)) % this.canvas.width);
+        const py = ((i * 71 + Math.sin(t * 0.02 + i) * 48) % this.canvas.height);
         const brightness = 100 + (i % 5) * 30;
         ctx.fillStyle = `rgb(${brightness * 0.6},${brightness * 0.4},${brightness * 0.2})`;
-        ctx.fillRect(Math.floor(px), Math.floor(py), 2, 2);
+        ctx.fillRect(Math.floor(px), Math.floor(py), 4, 4);
       }
       // 绘制几个角色剪影
       const charNames = ['xiahouyi', 'bingli', 'fenglingsheng'];
       charNames.forEach((name, i) => {
-        const x = 60 + i * 100;
-        const y = 80 + Math.sin(t * 0.03 + i * 2) * 5;
+        const x = 210 + i * 170;
+        const y = 220 + Math.sin(t * 0.03 + i * 2) * 10;
         ctx.globalAlpha = 0.4;
         // 优先用 sprite sheet
         const sheet = this.renderer.sheetManager.sheets[name];
         if (sheet) {
           const rect = this.renderer.sheetManager.getFrameRect(name, 'idle', Math.floor(t / 20) % 4);
           if (rect) {
-            ctx.drawImage(sheet.image, rect.x, rect.y, rect.w, rect.h, x, y, 64, 128);
+            ctx.drawImage(sheet.image, rect.x, rect.y, rect.w, rect.h, x, y, 86, 172);
           }
         } else {
           const sp = this.renderer.getSpriteFrame(name);
