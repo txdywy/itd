@@ -375,8 +375,12 @@ class BattleEngine {
     const canAttack = bestDist <= sk.range;
 
     if (canAttack) {
+      unit.anim = sk.type === 'magic' ? 'cast' : 'attack';
       this.executeAction(unit, bestTarget.x, bestTarget.y, skill, renderer);
+      bestTarget.anim = 'hurt';
+      setTimeout(() => { if (bestTarget.hp > 0) bestTarget.anim = 'idle'; }, 400);
       unit.acted = true;
+      setTimeout(() => { unit.anim = 'idle'; }, 600);
       cb();
       return;
     }
@@ -388,21 +392,30 @@ class BattleEngine {
     for (const m of moves) {
       const d = Math.abs(m.x - bestTarget.x) + Math.abs(m.y - bestTarget.y);
       if (d > sk.range) continue;
-      // 评分：距离越近越好，避免被多个敌人包围
       let score = -d * 10;
       const tile = parseInt(this.map.tiles[m.y][m.x]);
       score += (tileInfo[tile].def || 0) * 5;
-      // 优先可以攻击的位置
       score += 50;
       if (score > bestScore) { bestScore = score; bestMove = m; }
     }
 
     if (bestMove) {
+      unit.anim = 'walk';
+      // Update facing direction
+      const dx = bestMove.x - unit.x;
+      const dy = bestMove.y - unit.y;
+      if (Math.abs(dx) > Math.abs(dy)) unit.dir = dx > 0 ? 'right' : 'left';
       unit.x = bestMove.x;
       unit.y = bestMove.y;
-      this.executeAction(unit, bestTarget.x, bestTarget.y, skill, renderer);
-      unit.acted = true;
-      cb();
+      setTimeout(() => {
+        unit.anim = sk.type === 'magic' ? 'cast' : 'attack';
+        this.executeAction(unit, bestTarget.x, bestTarget.y, skill, renderer);
+        bestTarget.anim = 'hurt';
+        setTimeout(() => { if (bestTarget.hp > 0) bestTarget.anim = 'idle'; }, 400);
+        unit.acted = true;
+        setTimeout(() => { unit.anim = 'idle'; }, 600);
+        cb();
+      }, 300);
       return;
     }
 

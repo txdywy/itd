@@ -18,9 +18,15 @@ class Renderer {
     this.envParticles = [];
     this.ambientColor = 'rgba(10, 10, 20, 0.4)';
     this.camera = { x: 0, y: 0, targetX: 0, targetY: 0 };
+    this.sheetManager = new SpriteSheetManager();
     this.loadSprites();
     this.loadPortraits();
     this.initEnv();
+  }
+
+  // 异步初始化: 加载 PNG sprite sheets
+  async init(onProgress) {
+    await this.sheetManager.loadAll(onProgress);
   }
 
   initEnv() {
@@ -356,34 +362,64 @@ class Renderer {
     this.octx.ellipse(px + 8, py + 14, 7, 2.5, 0, 0, Math.PI * 2);
     this.octx.fill();
 
-    const sprite = this.getSpriteFrame(unit.sprite);
-    if (sprite) {
-      // Idle breathing animation
-      let offset_y = -4;
-      if (!isActed && unit.hp > 0) {
-        const breathe = Math.sin(this.animFrame * 0.08 + px * 0.1);
-        offset_y += Math.round(breathe) * 1;
-      }
-
-      const shiftX = (16 - sprite.width) / 2;
-      const shiftY = 16 - sprite.height;
-
-      if (isActed) {
-        this.octx.globalAlpha = 0.45;
-      }
-
-      this.octx.save();
-      let drawPx = px + shiftX;
-      if (unit.dir === 'left') {
-        this.octx.translate(drawPx + sprite.width / 2, 0);
-        this.octx.scale(-1, 1);
-        this.octx.translate(-(drawPx + sprite.width / 2), 0);
-      }
-      this.octx.drawImage(sprite, drawPx, py + shiftY + offset_y);
-      this.octx.restore();
-
-      this.octx.globalAlpha = 1.0;
+    if (isActed) {
+      this.octx.globalAlpha = 0.45;
     }
+
+    this.octx.save();
+
+    // 确定动画状态
+    let animName = unit.anim || 'idle';
+    if (unit.hp <= 0) animName = 'death';
+    else if (isActed) animName = 'idle';
+
+    // 动画帧速度 (每N个渲染帧切换一帧动画)
+    const animSpeed = animName === 'walk' ? 8 : animName === 'attack' ? 6 : 12;
+    const maxFrames = { idle: 4, walk: 4, attack: 4, cast: 2, hurt: 2, death: 4 };
+    const totalFrames = maxFrames[animName] || 4;
+    const frameIdx = Math.floor(this.animFrame / animSpeed) % totalFrames;
+
+    // 优先使用 PNG sprite sheet
+    const sheet = this.sheetManager.sheets[unit.sprite];
+    if (sheet) {
+      const rect = this.sheetManager.getFrameRect(unit.sprite, animName, frameIdx);
+      if (rect) {
+        const scale = 0.5; // 64x128 -> 32x64 in 320x240 offscreen
+        const dw = rect.w * scale;
+        const dh = rect.h * scale;
+        const drawX = px + (16 - dw) / 2;
+        const drawY = py + 16 - dh;
+
+        if (unit.dir === 'left') {
+          this.octx.translate(drawX + dw / 2, 0);
+          this.octx.scale(-1, 1);
+          this.octx.translate(-(drawX + dw / 2), 0);
+        }
+        this.octx.drawImage(sheet.image, rect.x, rect.y, rect.w, rect.h, drawX, drawY, dw, dh);
+      }
+    } else {
+      // 回退到文字编码精灵
+      const sprite = this.getSpriteFrame(unit.sprite);
+      if (sprite) {
+        let offset_y = -4;
+        if (!isActed && unit.hp > 0) {
+          const breathe = Math.sin(this.animFrame * 0.08 + px * 0.1);
+          offset_y += Math.round(breathe) * 1;
+        }
+        const shiftX = (16 - sprite.width) / 2;
+        const shiftY = 16 - sprite.height;
+        let drawPx = px + shiftX;
+        if (unit.dir === 'left') {
+          this.octx.translate(drawPx + sprite.width / 2, 0);
+          this.octx.scale(-1, 1);
+          this.octx.translate(-(drawPx + sprite.width / 2), 0);
+        }
+        this.octx.drawImage(sprite, drawPx, py + shiftY + offset_y);
+      }
+    }
+
+    this.octx.restore();
+    this.octx.globalAlpha = 1.0;
 
     // HP Bar
     const barW = 14;
@@ -409,7 +445,6 @@ class Renderer {
       this.octx.lineTo(px + 5, py - 14 + bounce);
       this.octx.lineTo(px + 11, py - 14 + bounce);
       this.octx.fill();
-      // Glow
       this.octx.fillStyle = 'rgba(255,255,0,0.15)';
       this.octx.beginPath();
       this.octx.arc(px + 8, py + 4, 10, 0, Math.PI * 2);

@@ -2177,6 +2177,6 @@ function createEnemy(type, x, y) {
     level: 1, hp: t.hp, maxHp: t.hp, mp: t.mp, maxMp: t.mp,
     atk: t.atk, def: t.def, mag: t.mag, spd: t.spd, move: t.move,
     skills: t.skills, ai: t.ai, boss: t.boss || false,
-    exp: t.exp, x, y, team: 'enemy', acted: false, dir: 'left'
+    exp: t.exp, x, y, team: 'enemy', acted: false, dir: 'left', anim: 'idle'
   };
 }

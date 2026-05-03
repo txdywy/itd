@@ -345,7 +345,8 @@ class Game {
         move: tmpl.move,
         team: 'player',
         acted: false,
-        dir: 'right' // Default facing right
+        dir: 'right',
+        anim: 'idle'
       };
       players.push(p);
     }
@@ -494,7 +495,7 @@ class Game {
 
   moveUnit(unit, x, y) {
     AudioSys.sfx('move');
-    // Update direction based on primary movement axis
+    unit.anim = 'walk';
     const dx = x - unit.x;
     const dy = y - unit.y;
     if (Math.abs(dx) > Math.abs(dy)) {
@@ -506,6 +507,7 @@ class Game {
     unit.y = y;
     this.battle.moveRange = [];
     this.state = 'battle_moved';
+    setTimeout(() => { unit.anim = 'idle'; }, 300);
     this.showActionMenu();
   }
 
@@ -576,6 +578,9 @@ class Game {
     this.state = 'battle_anim';
     this.battle.attackRange = [];
 
+    // 设置攻击动画
+    unit.anim = skill.type === 'magic' ? 'cast' : 'attack';
+
     // 音效
     if (skill.type === 'magic') AudioSys.sfx('magic');
     else AudioSys.sfx('attack');
@@ -583,11 +588,19 @@ class Game {
     // 执行攻击
     this.battle.executeAction(unit, tx, ty, skillKey, this.renderer);
 
+    // 目标受击动画
+    const target = this.battle.getUnitAt(tx, ty);
+    if (target && target.hp > 0) {
+      target.anim = 'hurt';
+      setTimeout(() => { if (target.hp > 0) target.anim = 'idle'; }, 400);
+    }
+
     // 标记已行动
     unit.acted = true;
     this.updateUnitInfo(unit);
 
     setTimeout(() => {
+      unit.anim = 'idle';
       this.deselectUnit();
       this.checkEndPlayerTurn();
     }, 800);
@@ -776,16 +789,23 @@ class Game {
         ctx.fillRect(Math.floor(px), Math.floor(py), 2, 2);
       }
       // 绘制几个角色剪影
-      const sprites = ['xiahouyi', 'bingli', 'fenglingsheng'];
-      sprites.forEach((name, i) => {
-        const sp = this.renderer.getSpriteFrame(name);
-        if (sp) {
-          const x = 80 + i * 80;
-          const y = 120 + Math.sin(t * 0.03 + i * 2) * 5;
-          ctx.globalAlpha = 0.4;
-          ctx.drawImage(sp, x, y);
-          ctx.globalAlpha = 1;
+      const charNames = ['xiahouyi', 'bingli', 'fenglingsheng'];
+      charNames.forEach((name, i) => {
+        const x = 60 + i * 100;
+        const y = 80 + Math.sin(t * 0.03 + i * 2) * 5;
+        ctx.globalAlpha = 0.4;
+        // 优先用 sprite sheet
+        const sheet = this.renderer.sheetManager.sheets[name];
+        if (sheet) {
+          const rect = this.renderer.sheetManager.getFrameRect(name, 'idle', Math.floor(t / 20) % 4);
+          if (rect) {
+            ctx.drawImage(sheet.image, rect.x, rect.y, rect.w, rect.h, x, y, 64, 128);
+          }
+        } else {
+          const sp = this.renderer.getSpriteFrame(name);
+          if (sp) ctx.drawImage(sp, x, y);
         }
+        ctx.globalAlpha = 1;
       });
       this.renderer.drawPostProcess(); // Apply vignette to title too
     }
@@ -795,7 +815,12 @@ class Game {
   }
 }
 
-// 启动
-window.onload = () => {
-  window.game = new Game();
+// 启动 (异步加载 sprite sheets)
+window.onload = async () => {
+  const game = new Game();
+  window.game = game;
+  // 加载 PNG sprite sheets (找不到则用 placeholder)
+  await game.renderer.init((loaded, total) => {
+    console.log(`Loading sprites: ${loaded}/${total}`);
+  });
 };
