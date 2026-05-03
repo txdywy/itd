@@ -44,14 +44,18 @@ class StorySystem {
       const renderer = window.gameRenderer;
       let imgData = null;
       if (renderer) {
+        // Try portrait cache first (dedicated portraits)
         if (renderer.portraitCache && renderer.portraitCache[speakerData.sprite]) {
            imgData = renderer.portraitCache[speakerData.sprite];
-        } else if (renderer.spriteCache && renderer.spriteCache[speakerData.sprite]) {
-           imgData = renderer.spriteCache[speakerData.sprite];
+        }
+        // Fallback to first sprite frame
+        if (!imgData && renderer.spriteCache && renderer.spriteCache[speakerData.sprite]) {
+           const frames = renderer.spriteCache[speakerData.sprite];
+           if (Array.isArray(frames)) imgData = frames[0];
+           else imgData = frames;
         }
       }
       if (imgData) {
-        // Center the scaled image if it doesn't match aspect ratio exactly
         ctx.drawImage(imgData, 0, 0, imgData.width, imgData.height, 0, 0, 96, 96);
       } else {
         ctx.fillStyle = '#333';

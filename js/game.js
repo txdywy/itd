@@ -778,7 +778,7 @@ class Game {
       // 绘制几个角色剪影
       const sprites = ['xiahouyi', 'bingli', 'fenglingsheng'];
       sprites.forEach((name, i) => {
-        const sp = this.renderer.spriteCache[name];
+        const sp = this.renderer.getSpriteFrame(name);
         if (sp) {
           const x = 80 + i * 80;
           const y = 120 + Math.sin(t * 0.03 + i * 2) * 5;
