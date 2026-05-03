@@ -10,11 +10,11 @@
 <div id="game-container">
   <canvas id="gameCanvas" width="640" height="480"></canvas>
   <div id="ui-layer">
-    <div id="top-bar">
+    <div id="top-bar" class="rpg-panel">
       <span id="chapter-title">第一章：河州镇之劫</span>
       <span id="turn-indicator">我方回合</span>
     </div>
-    <div id="unit-info" class="hidden">
+    <div id="unit-info" class="hidden rpg-panel">
       <div class="info-name">夏侯仪</div>
       <div class="info-hp-bar"><div class="hp-fill"></div></div>
       <div class="info-stats">
@@ -22,19 +22,19 @@
         <span>MP: <b class="mp">50</b>/<b class="max-mp">50</b></span>
       </div>
     </div>
-    <div id="action-menu" class="hidden">
+    <div id="action-menu" class="hidden rpg-panel">
       <button data-action="attack">攻击</button>
       <button data-action="magic">法术</button>
       <button data-action="item">道具</button>
       <button data-action="wait">待机</button>
     </div>
     <button id="end-turn-btn" class="hidden">结束回合</button>
-    <div id="magic-menu" class="hidden">
+    <div id="magic-menu" class="hidden rpg-panel">
       <div class="magic-list"></div>
       <button class="back-btn">返回</button>
     </div>
-    <div id="tile-tooltip" class="hidden"></div>
-    <div id="dialogue-box" class="hidden">
+    <div id="tile-tooltip" class="hidden rpg-panel"></div>
+    <div id="dialogue-box" class="hidden rpg-panel">
       <div class="portrait"></div>
       <div class="dialogue-text"></div>
       <div class="dialogue-name"></div>
@@ -61,7 +61,7 @@
     </div>
     <div id="howto-screen" class="hidden overlay">
       <h2>游戏说明</h2>
-      <div class="howto-content">
+      <div class="howto-content rpg-panel">
         <p><b>操作：</b>鼠标点击选择角色和移动/攻击目标</p>
         <p><b>回合制战棋：</b>我方所有角色行动完毕后进入敌方回合</p>
         <p><b>属性相克：</b>火→冰→雷→火，暗↔圣</p>
@@ -71,7 +71,7 @@
       </div>
       <button id="howto-back">返回</button>
     </div>
-    <div id="toast-msg" class="hidden"></div>
+    <div id="toast-msg" class="hidden rpg-panel"></div>
   </div>
 </div>
 

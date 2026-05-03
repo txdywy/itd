@@ -55,92 +55,152 @@ class Renderer {
         const tile = parseInt(map.tiles[y][x]);
         const px = x * 16;
         const py = y * 16;
-        // 地形基础色
+        
+        // Base color
         let color = tileColors[tile] || '#333';
-        // 地形纹理
         this.octx.fillStyle = color;
         this.octx.fillRect(px, py, 16, 16);
-        // 纹理细节
-        if (tile === 0) { // 平地
+
+        // Tile shading and textures (pixel art style)
+        if (tile === 0 || tile === 5) { // Plains / Road
+          this.octx.fillStyle = 'rgba(0,0,0,0.1)';
+          this.octx.fillRect(px, py + 15, 16, 1);
           this.octx.fillStyle = 'rgba(255,255,255,0.05)';
+          this.octx.fillRect(px, py, 16, 1);
           if ((x+y)%3===0) this.octx.fillRect(px+4, py+4, 2, 2);
-        } else if (tile === 3) { // 树林
+          if ((x*y)%5===0) this.octx.fillRect(px+10, py+10, 2, 2);
+        } else if (tile === 3) { // Forest
           this.octx.fillStyle = '#2a5a1a';
-          this.octx.fillRect(px+2, py+2, 4, 4);
-          this.octx.fillRect(px+10, py+6, 4, 4);
-          this.octx.fillRect(px+6, py+10, 4, 4);
-        } else if (tile === 4) { // 山地
-          this.octx.fillStyle = '#7a5a10';
-          this.octx.fillRect(px+4, py+8, 8, 6);
-        } else if (tile === 9) { // 幽垠
-          this.octx.fillStyle = 'rgba(100,50,100,0.3)';
+          this.octx.fillRect(px+2, py+2, 6, 6);
+          this.octx.fillRect(px+8, py+6, 6, 6);
+          this.octx.fillRect(px+4, py+10, 6, 6);
+          this.octx.fillStyle = '#1e4013'; // shadow
+          this.octx.fillRect(px+4, py+8, 6, 2);
+          this.octx.fillRect(px+10, py+12, 4, 2);
+        } else if (tile === 4) { // Mountain
+          this.octx.fillStyle = '#6b4f0e';
+          this.octx.beginPath();
+          this.octx.moveTo(px+8, py+2);
+          this.octx.lineTo(px+14, py+14);
+          this.octx.lineTo(px+2, py+14);
+          this.octx.fill();
+          this.octx.fillStyle = '#8b6914';
+          this.octx.beginPath();
+          this.octx.moveTo(px+8, py+2);
+          this.octx.lineTo(px+8, py+14);
+          this.octx.lineTo(px+2, py+14);
+          this.octx.fill();
+          this.octx.fillStyle = 'rgba(255,255,255,0.4)';
+          this.octx.fillRect(px+7, py+2, 2, 2);
+        } else if (tile === 1) { // Wall
+          this.octx.fillStyle = '#666';
           this.octx.fillRect(px, py, 16, 16);
+          this.octx.fillStyle = '#555';
+          this.octx.fillRect(px, py+8, 16, 8);
+          this.octx.strokeStyle = '#444';
+          this.octx.strokeRect(px, py, 16, 8);
+          this.octx.strokeRect(px, py+8, 16, 8);
+        } else if (tile === 9) { // Dark Realm
+          this.octx.fillStyle = `rgba(80,30,80, ${0.4 + Math.sin(this.animFrame * 0.05 + x + y) * 0.1})`;
+          this.octx.fillRect(px, py, 16, 16);
+          this.octx.fillStyle = 'rgba(200,100,255,0.1)';
+          this.octx.fillRect(px+6, py+6, 4, 4);
         }
-        // 格子线
-        this.octx.strokeStyle = 'rgba(0,0,0,0.15)';
-        this.octx.strokeRect(px, py, 16, 16);
+
+        // Grid lines (subtle)
+        this.octx.fillStyle = 'rgba(0,0,0,0.2)';
+        this.octx.fillRect(px + 15, py, 1, 16);
+        this.octx.fillRect(px, py + 15, 16, 1);
       }
     }
 
-    // 高亮可移动范围
+    // Highlight movement range
     for (const t of highlightTiles) {
       const px = t.x * 16;
       const py = t.y * 16;
       this.octx.fillStyle = 'rgba(100,200,255,0.35)';
       this.octx.fillRect(px, py, 16, 16);
+      this.octx.strokeStyle = 'rgba(100,200,255,0.8)';
+      this.octx.strokeRect(px+1, py+1, 14, 14);
     }
 
-    // 高亮攻击范围
+    // Highlight attack range
     for (const t of attackTiles) {
       const px = t.x * 16;
       const py = t.y * 16;
       this.octx.fillStyle = 'rgba(255,80,80,0.35)';
       this.octx.fillRect(px, py, 16, 16);
+      this.octx.strokeStyle = 'rgba(255,80,80,0.8)';
+      this.octx.strokeRect(px+1, py+1, 14, 14);
     }
 
-    // 悬停格子
+    // Hover cursor
     if (hoverTile) {
       const px = hoverTile.x * 16;
       const py = hoverTile.y * 16;
       this.octx.strokeStyle = '#fff';
       this.octx.lineWidth = 1;
-      this.octx.strokeRect(px + 0.5, py + 0.5, 15, 15);
-      this.octx.lineWidth = 1;
+      this.octx.strokeRect(px, py, 16, 16);
+      // animated inner corners
+      const bounce = Math.floor(Math.sin(this.animFrame * 0.2) * 2);
+      this.octx.fillStyle = '#fff';
+      this.octx.fillRect(px, py, 3+bounce, 1); this.octx.fillRect(px, py, 1, 3+bounce);
+      this.octx.fillRect(px+16-3-bounce, py, 3+bounce, 1); this.octx.fillRect(px+15, py, 1, 3+bounce);
+      this.octx.fillRect(px, py+15, 3+bounce, 1); this.octx.fillRect(px, py+16-3-bounce, 1, 3+bounce);
+      this.octx.fillRect(px+16-3-bounce, py+15, 3+bounce, 1); this.octx.fillRect(px+15, py+16-3-bounce, 1, 3+bounce);
     }
   }
 
   drawUnit(unit, isSelected = false, isActed = false) {
     const px = unit.x * 16;
     const py = unit.y * 16;
+    
+    // Unit shadow
+    this.octx.fillStyle = 'rgba(0,0,0,0.5)';
+    this.octx.beginPath();
+    this.octx.ellipse(px + 8, py + 14, 6, 2, 0, 0, Math.PI * 2);
+    this.octx.fill();
+
     const sprite = this.spriteCache[unit.sprite];
     if (sprite) {
-      this.octx.drawImage(sprite, px, py - 2);
+      let offset_y = -2;
+      // Idle bounce animation
+      if (!isActed && unit.hp > 0) {
+        offset_y += Math.sin(this.animFrame * 0.1 + px) > 0 ? 0 : 1;
+      }
+      this.octx.drawImage(sprite, px, py + offset_y);
     }
-    // 血条
+
+    // HP Bar
     const barW = 14;
     const barH = 2;
     const hpRatio = unit.hp / unit.maxHp;
-    this.octx.fillStyle = '#333';
-    this.octx.fillRect(px + 1, py - 5, barW, barH);
-    this.octx.fillStyle = hpRatio > 0.5 ? '#4a4' : hpRatio > 0.25 ? '#aa4' : '#a44';
+    this.octx.fillStyle = '#000';
+    this.octx.fillRect(px + 1, py - 6, barW, barH + 1); // background/border
+    this.octx.fillStyle = hpRatio > 0.5 ? '#4a4' : hpRatio > 0.25 ? '#ea4' : '#e44';
     this.octx.fillRect(px + 1, py - 5, Math.max(0, barW * hpRatio), barH);
-    // 选中标记
+    
+    // Selection indicator
     if (isSelected) {
       const bounce = Math.sin(this.animFrame * 0.15) * 2;
-      this.octx.strokeStyle = '#ff0';
-      this.octx.lineWidth = 1;
-      this.octx.strokeRect(px + 0.5, py + 0.5 + bounce, 15, 15);
-      this.octx.lineWidth = 1;
+      this.octx.fillStyle = '#ff0';
+      this.octx.beginPath();
+      this.octx.moveTo(px + 8, py - 10 + bounce);
+      this.octx.lineTo(px + 5, py - 14 + bounce);
+      this.octx.lineTo(px + 11, py - 14 + bounce);
+      this.octx.fill();
     }
-    // 已行动标记
+    
+    // Acted overlay
     if (isActed) {
-      this.octx.fillStyle = 'rgba(0,0,0,0.4)';
+      this.octx.fillStyle = 'rgba(0,0,0,0.5)';
       this.octx.fillRect(px, py, 16, 16);
     }
-    // BOSS标记
+    
+    // BOSS Icon
     if (unit.boss) {
       this.octx.fillStyle = '#f44';
-      this.octx.font = '6px monospace';
+      this.octx.font = '8px monospace';
       this.octx.fillText('★', px + 10, py - 6);
     }
   }
