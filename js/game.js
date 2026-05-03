@@ -167,7 +167,8 @@ class Game {
         mag: stats.mag, spd: stats.spd,
         move: tmpl.move,
         team: 'player',
-        acted: false
+        acted: false,
+        dir: 'right' // Default facing right
       };
       players.push(p);
     }
@@ -316,6 +317,14 @@ class Game {
 
   moveUnit(unit, x, y) {
     AudioSys.sfx('move');
+    // Update direction based on primary movement axis
+    const dx = x - unit.x;
+    const dy = y - unit.y;
+    if (Math.abs(dx) > Math.abs(dy)) {
+      unit.dir = dx > 0 ? 'right' : 'left';
+    } else if (Math.abs(dy) > Math.abs(dx)) {
+      unit.dir = dy > 0 ? 'down' : 'up';
+    }
     unit.x = x;
     unit.y = y;
     this.battle.moveRange = [];

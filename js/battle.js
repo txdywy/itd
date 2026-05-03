@@ -61,10 +61,18 @@ class BattleEngine {
   // 计算攻击/技能范围
   calcAttackRange(unit, range) {
     const res = [];
+    const unitTile = tileInfo[parseInt(this.map.tiles[unit.y][unit.x])];
+    let actualRange = range;
+    
+    // High ground gives +1 range for ranged attacks (range > 1)
+    if (range > 1 && (unitTile.height || 0) >= 2) {
+      actualRange += 1;
+    }
+
     for (let y = 0; y < this.map.height; y++) {
       for (let x = 0; x < this.map.width; x++) {
         const d = Math.abs(x - unit.x) + Math.abs(y - unit.y);
-        if (d > 0 && d <= range) res.push({ x, y });
+        if (d > 0 && d <= actualRange) res.push({ x, y });
       }
     }
     return res;
@@ -76,7 +84,9 @@ class BattleEngine {
     let dmg = 0;
     let isHit = true;
     let isCrit = Math.random() < 0.08;
-    const avoid = tileInfo[parseInt(this.map.tiles[defender.y][defender.x])].avoid || 0;
+    const defTile = tileInfo[parseInt(this.map.tiles[defender.y][defender.x])];
+    const attTile = tileInfo[parseInt(this.map.tiles[attacker.y][attacker.x])];
+    const avoid = defTile.avoid || 0;
     const hitRate = Math.min(100, 90 + (attacker.spd - defender.spd) * 2 - avoid);
     isHit = Math.random() * 100 < hitRate;
     if (!isHit) return { dmg: 0, isHit: false, isCrit: false };
@@ -87,6 +97,39 @@ class BattleEngine {
       dmg = Math.max(1, attacker.mag - defender.def * 0.5 + tmpl.power);
     } else if (tmpl.type === 'heal') {
       return { dmg: -tmpl.power, isHit: true, isCrit: false };
+    }
+
+    // Directional facing modifier
+    if (tmpl.type !== 'heal' && tmpl.range === 1) {
+      let dx = attacker.x - defender.x;
+      let dy = attacker.y - defender.y;
+      let attackDir = '';
+      if (Math.abs(dx) > Math.abs(dy)) attackDir = dx > 0 ? 'left' : 'right';
+      else attackDir = dy > 0 ? 'up' : 'down';
+
+      if (attackDir === defender.dir) {
+        // Backstab
+        dmg *= 1.5;
+        isCrit = Math.random() < 0.3; // Higher crit chance from back
+      } else if (
+        (attackDir === 'left' && (defender.dir === 'up' || defender.dir === 'down')) ||
+        (attackDir === 'right' && (defender.dir === 'up' || defender.dir === 'down')) ||
+        (attackDir === 'up' && (defender.dir === 'left' || defender.dir === 'right')) ||
+        (attackDir === 'down' && (defender.dir === 'left' || defender.dir === 'right'))
+      ) {
+        // Flank
+        dmg *= 1.25;
+      }
+    }
+
+    // Elevation modifier
+    if (tmpl.type !== 'heal') {
+      const heightDiff = (attTile.height || 0) - (defTile.height || 0);
+      if (heightDiff > 0) {
+        dmg *= 1.1; // +10% from high ground
+      } else if (heightDiff < 0) {
+        dmg *= 0.9; // -10% from low ground
+      }
     }
 
     // 元素相克
@@ -106,6 +149,16 @@ class BattleEngine {
   executeAction(attacker, targetX, targetY, skillKey, renderer) {
     const skill = SKILLS[skillKey];
     const targets = [];
+    
+    // Attacker turns to face target
+    const dx = targetX - attacker.x;
+    const dy = targetY - attacker.y;
+    if (Math.abs(dx) > Math.abs(dy)) {
+      attacker.dir = dx > 0 ? 'right' : 'left';
+    } else if (Math.abs(dy) > Math.abs(dx)) {
+      attacker.dir = dy > 0 ? 'down' : 'up';
+    }
+
     // 范围判定
     if (skill.area > 1) {
       for (const u of this.allUnits) {
@@ -143,6 +196,18 @@ class BattleEngine {
           showDamage(screenX, screenY, result.isCrit ? `暴击 ${result.dmg}` : `${result.dmg}`);
           renderer.addEffect('slash', target.x, target.y, { life: 10 });
           AudioSys.sfx('hit');
+          
+          // Defender turns to face attacker if they survive
+          if (target.hp > 0) {
+             const tdx = attacker.x - target.x;
+             const tdy = attacker.y - target.y;
+             if (Math.abs(tdx) > Math.abs(tdy)) {
+               target.dir = tdx > 0 ? 'right' : 'left';
+             } else if (Math.abs(tdy) > Math.abs(tdx)) {
+               target.dir = tdy > 0 ? 'down' : 'up';
+             }
+          }
+
           // 经验值
           if (target.hp <= 0 && prevHp > 0 && attacker.team === 'player') {
             attacker.exp = (attacker.exp || 0) + (target.exp || 15);
@@ -175,13 +240,45 @@ class BattleEngine {
       renderer.addEffect('magic', targetX, targetY, { element: skill.element, life: 20 });
     }
 
-    // 近战反击
+    // 智能反击 (Counter-attack)
     for (const target of targets) {
-      if (target.hp > 0 && skill.type === 'phys' && Math.abs(attacker.x - target.x) + Math.abs(attacker.y - target.y) <= 1) {
-        const counter = this.calcDamage(target, attacker, 'attack');
-        if (counter.isHit) {
-          attacker.hp = Math.max(0, attacker.hp - counter.dmg);
-          renderer.addEffect('slash', attacker.x, attacker.y, { life: 8 });
+      if (target.hp > 0 && skill.type !== 'heal') {
+        const dist = Math.abs(attacker.x - target.x) + Math.abs(attacker.y - target.y);
+        // Find best valid counter skill (prioritize phys, then magic if in range)
+        let counterSkill = null;
+        for (const skKey of target.skills) {
+           const sk = SKILLS[skKey];
+           const actualRange = sk.range > 1 && (tileInfo[parseInt(this.map.tiles[target.y][target.x])].height || 0) >= 2 ? sk.range + 1 : sk.range;
+           if (sk.type !== 'heal' && actualRange >= dist && target.mp >= sk.mp) {
+              if (!counterSkill || sk.power > SKILLS[counterSkill].power) {
+                 counterSkill = skKey;
+              }
+           }
+        }
+
+        if (counterSkill) {
+          const cSkill = SKILLS[counterSkill];
+          target.mp = Math.max(0, target.mp - cSkill.mp);
+          const counter = this.calcDamage(target, attacker, counterSkill);
+          if (counter.isHit) {
+            attacker.hp = Math.max(0, attacker.hp - counter.dmg);
+            renderer.addEffect('damage', attacker.x, attacker.y, { value: counter.dmg, life: 30 });
+            const el = document.getElementById('game-container');
+            const rect = el.getBoundingClientRect();
+            showDamage(rect.left + attacker.x * 32 + 10, rect.top + attacker.y * 32, counter.isCrit ? `反击暴击 ${counter.dmg}` : `反击 ${counter.dmg}`);
+            
+            if (cSkill.type === 'magic') {
+              renderer.addEffect('magic', attacker.x, attacker.y, { element: cSkill.element, life: 20 });
+              AudioSys.sfx('magic');
+            } else {
+              renderer.addEffect('slash', attacker.x, attacker.y, { life: 10 });
+              AudioSys.sfx('hit');
+            }
+          } else {
+            const el = document.getElementById('game-container');
+            const rect = el.getBoundingClientRect();
+            showDamage(rect.left + attacker.x * 32 + 10, rect.top + attacker.y * 32, '反击 MISS');
+          }
         }
       }
     }

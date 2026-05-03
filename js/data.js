@@ -575,13 +575,13 @@ const tileColors = {
 };
 
 const tileInfo = {
-  0: { name: '平地', move: 1, def: 0, avoid: 0 },
-  1: { name: '墙壁', move: 99, def: 0, avoid: 0 },
-  2: { name: '水域', move: 99, def: 0, avoid: 0 },
-  3: { name: '树林', move: 2, def: 1, avoid: 20 },
-  4: { name: '山地', move: 3, def: 2, avoid: 10 },
-  5: { name: '道路', move: 1, def: 0, avoid: 0 },
-  9: { name: '幽垠', move: 2, def: 1, avoid: 0 },
+  0: { name: '平地', move: 1, def: 0, avoid: 0, height: 0 },
+  1: { name: '墙壁', move: 99, def: 0, avoid: 0, height: 3 },
+  2: { name: '水域', move: 99, def: 0, avoid: 0, height: -1 },
+  3: { name: '树林', move: 2, def: 1, avoid: 20, height: 1 },
+  4: { name: '山地', move: 3, def: 2, avoid: 10, height: 2 },
+  5: { name: '道路', move: 1, def: 0, avoid: 0, height: 0 },
+  9: { name: '幽垠', move: 2, def: 1, avoid: 0, height: -1 },
 };
 
 // 角色职业模板
@@ -977,6 +977,6 @@ function createEnemy(type, x, y) {
     level: 1, hp: t.hp, maxHp: t.hp, mp: t.mp, maxMp: t.mp,
     atk: t.atk, def: t.def, mag: t.mag, spd: t.spd, move: t.move,
     skills: t.skills, ai: t.ai, boss: t.boss || false,
-    exp: t.exp, x, y, team: 'enemy', acted: false
+    exp: t.exp, x, y, team: 'enemy', acted: false, dir: 'left'
   };
 }

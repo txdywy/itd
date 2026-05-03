@@ -269,7 +269,18 @@ class Renderer {
       if (isActed) {
         this.octx.globalAlpha = 0.5; // Dim acted units
       }
-      this.octx.drawImage(sprite, px + shiftX, py + shiftY + offset_y);
+      
+      this.octx.save();
+      let drawPx = px + shiftX;
+      if (unit.dir === 'left') {
+        // Flip horizontally
+        this.octx.translate(drawPx + sprite.width / 2, 0);
+        this.octx.scale(-1, 1);
+        this.octx.translate(-(drawPx + sprite.width / 2), 0);
+      }
+      this.octx.drawImage(sprite, drawPx, py + shiftY + offset_y);
+      this.octx.restore();
+      
       this.octx.globalAlpha = 1.0;
     }
 
