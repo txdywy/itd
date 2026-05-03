@@ -38,15 +38,24 @@ class StorySystem {
     this.portraitEl.innerHTML = '';
     if (speakerData.sprite) {
       const img = document.createElement('canvas');
-      img.width = 80; img.height = 80;
+      img.width = 96; img.height = 96;
       const ctx = img.getContext('2d');
       ctx.imageSmoothingEnabled = false;
-      const sprite = window.gameRenderer ? window.gameRenderer.spriteCache[speakerData.sprite] : null;
-      if (sprite) {
-        ctx.drawImage(sprite, 0, 0, 80, 80);
+      const renderer = window.gameRenderer;
+      let imgData = null;
+      if (renderer) {
+        if (renderer.portraitCache && renderer.portraitCache[speakerData.sprite]) {
+           imgData = renderer.portraitCache[speakerData.sprite];
+        } else if (renderer.spriteCache && renderer.spriteCache[speakerData.sprite]) {
+           imgData = renderer.spriteCache[speakerData.sprite];
+        }
+      }
+      if (imgData) {
+        // Center the scaled image if it doesn't match aspect ratio exactly
+        ctx.drawImage(imgData, 0, 0, imgData.width, imgData.height, 0, 0, 96, 96);
       } else {
         ctx.fillStyle = '#333';
-        ctx.fillRect(0, 0, 80, 80);
+        ctx.fillRect(0, 0, 96, 96);
       }
       this.portraitEl.appendChild(img);
     }

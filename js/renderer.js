@@ -28,11 +28,13 @@ class Renderer {
 
   makeSprite(lines) {
     const c = document.createElement('canvas');
-    c.width = 16; c.height = 16;
+    const height = lines.length;
+    const width = height > 0 ? lines[0].length : 16;
+    c.width = width; c.height = height;
     const x = c.getContext('2d');
-    for (let r = 0; r < 16; r++) {
+    for (let r = 0; r < height; r++) {
       const row = lines[r] || '';
-      for (let col = 0; col < 16; col++) {
+      for (let col = 0; col < width; col++) {
         const ch = row[col] || '.';
         const color = PALETTE[ch];
         if (color) {
@@ -168,7 +170,15 @@ class Renderer {
       if (!isActed && unit.hp > 0) {
         offset_y += Math.sin(this.animFrame * 0.1 + px) > 0 ? 0 : 1;
       }
-      this.octx.drawImage(sprite, px, py + offset_y);
+      
+      const shiftX = (16 - sprite.width) / 2;
+      const shiftY = 16 - sprite.height;
+      
+      if (isActed) {
+        this.octx.globalAlpha = 0.5; // Dim acted units
+      }
+      this.octx.drawImage(sprite, px + shiftX, py + shiftY + offset_y);
+      this.octx.globalAlpha = 1.0;
     }
 
     // HP Bar
@@ -191,12 +201,6 @@ class Renderer {
       this.octx.fill();
     }
     
-    // Acted overlay
-    if (isActed) {
-      this.octx.fillStyle = 'rgba(0,0,0,0.5)';
-      this.octx.fillRect(px, py, 16, 16);
-    }
-    
     // BOSS Icon
     if (unit.boss) {
       this.octx.fillStyle = '#f44';
@@ -215,31 +219,46 @@ class Renderer {
       }
       const px = e.x * 16 + 8;
       const py = e.y * 16 + 8;
+      const maxLife = e.maxLife || 20;
+      const progress = 1 - (e.life / maxLife);
+
       if (e.type === 'slash') {
-        this.octx.strokeStyle = '#fff';
+        this.octx.strokeStyle = `rgba(255, 255, 255, ${1 - progress})`;
+        this.octx.lineWidth = 2 + (1 - progress) * 2;
         this.octx.beginPath();
-        this.octx.moveTo(px - 6, py - 6);
-        this.octx.lineTo(px + 6, py + 6);
-        this.octx.moveTo(px + 6, py - 6);
-        this.octx.lineTo(px - 6, py + 6);
+        const startAngle = Math.PI * 1.25 + progress;
+        const endAngle = Math.PI * 1.75 + progress * 2;
+        this.octx.arc(px - 4 + progress * 8, py, 14, startAngle, endAngle);
         this.octx.stroke();
+        this.octx.lineWidth = 1;
       } else if (e.type === 'magic') {
-        const colors = { fire: '#f84', ice: '#8ff', thunder: '#ff8', dark: '#a4a', wind: '#8f8', holy: '#ff8' };
+        const colors = { fire: '#f42', ice: '#4cf', thunder: '#ff2', dark: '#628', wind: '#4f8', holy: '#ffd' };
         this.octx.fillStyle = colors[e.element] || '#fff';
-        const r = 8 + Math.sin(e.life * 0.3) * 4;
+        
+        // Exploding particles
+        for(let p = 0; p < 6; p++) {
+          const angle = (Math.PI * 2 / 6) * p + progress * 4;
+          const radius = progress * 20;
+          const sx = px + Math.cos(angle) * radius;
+          const sy = py + Math.sin(angle) * radius;
+          const size = Math.max(1, 5 * (1 - Math.pow(progress, 2)));
+          this.octx.fillRect(sx - size/2, sy - size/2, size, size);
+        }
+        // Central intense flash
+        this.octx.fillStyle = `rgba(255,255,255,${0.8 - progress})`;
         this.octx.beginPath();
-        this.octx.arc(px, py, Math.max(1, r * (e.life / 20)), 0, Math.PI * 2);
+        this.octx.arc(px, py, 18 * Math.sin(progress * Math.PI), 0, Math.PI * 2);
         this.octx.fill();
       } else if (e.type === 'damage') {
         this.octx.fillStyle = e.heal ? '#4f4' : '#f44';
         this.octx.font = '10px monospace';
-        this.octx.fillText(e.value, px - 6, py - 10 - (20 - e.life));
+        this.octx.fillText(e.value, px - 6, py - 10 - (maxLife - e.life));
       }
     }
   }
 
   addEffect(type, x, y, opts = {}) {
-    this.effects.push({ type, x, y, life: opts.life || 20, ...opts });
+    this.effects.push({ type, x, y, life: opts.life || 20, maxLife: opts.life || 20, ...opts });
   }
 
   render() {
