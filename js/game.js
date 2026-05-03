@@ -316,7 +316,10 @@ class Game {
       this.showMagicMenu(unit);
     } else if (action === 'item') {
       // 简化：道具功能省略
-      alert('道具系统暂未开放');
+      const toast = document.getElementById('toast-msg');
+      toast.textContent = '道具系统暂未开放';
+      toast.classList.remove('hidden');
+      setTimeout(() => toast.classList.add('hidden'), 2000);
     } else if (action === 'wait') {
       unit.acted = true;
       this.deselectUnit();
