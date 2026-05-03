@@ -13,6 +13,10 @@ class Game {
     this.inventory = [];
     this.hoverTile = null;
     this.selectedSkill = null;
+    this.lastMoveRange = [];
+    this.pendingMouseMove = null;
+    this.mouseMoveQueued = false;
+    this.lastHoverKey = '';
 
     this.uiInfo = document.getElementById('unit-info');
     this.uiAction = document.getElementById('action-menu');
@@ -83,7 +87,7 @@ class Game {
 
     // 画布点击
     this.canvas.addEventListener('click', (e) => this.onCanvasClick(e));
-    this.canvas.addEventListener('mousemove', (e) => this.onCanvasMove(e));
+    this.canvas.addEventListener('mousemove', (e) => this.queueCanvasMove(e));
 
     // 结束回合
     document.getElementById('end-turn-btn').onclick = () => {
@@ -371,11 +375,25 @@ class Game {
       this.story.start(storyKey, () => {
         this.state = 'battle_idle';
         this.battle.startTurn('player');
+        this.focusNextActionableUnit();
       });
     } else {
       this.state = 'battle_idle';
       this.battle.startTurn('player');
+      this.focusNextActionableUnit();
     }
+  }
+
+  queueCanvasMove(e) {
+    this.pendingMouseMove = { clientX: e.clientX, clientY: e.clientY };
+    if (this.mouseMoveQueued) return;
+    this.mouseMoveQueued = true;
+    requestAnimationFrame(() => {
+      this.mouseMoveQueued = false;
+      if (!this.pendingMouseMove) return;
+      this.onCanvasMove(this.pendingMouseMove);
+      this.pendingMouseMove = null;
+    });
   }
 
   onCanvasMove(e) {
@@ -396,21 +414,29 @@ class Game {
     const tooltip = document.getElementById('tile-tooltip');
     if (tile) {
       const { x, y } = tile;
+      const hoverKey = `${x},${y}`;
+      const movedWithinSameTile = hoverKey === this.lastHoverKey;
       this.hoverTile = tile;
+      this.lastHoverKey = hoverKey;
       // 显示地形tooltip
       if (this.battle && this.state !== 'title' && this.state !== 'dialogue' && !this.battle.winner) {
         const tile = parseInt(this.battle.map.tiles[y][x]);
         const info = tileInfo[tile];
         if (info) {
-          tooltip.textContent = `${info.name} 防+${info.def} 回+${info.avoid}%`;
+          if (!movedWithinSameTile) {
+            tooltip.textContent = `${info.name} 防+${info.def} 回+${info.avoid}%`;
+          }
           tooltip.classList.remove('hidden');
-          this.positionTileTooltip(tooltip, mx, my, x, y, rect);
+          if (!movedWithinSameTile || this.renderer.animFrame % 6 === 0) {
+            this.positionTileTooltip(tooltip, mx, my, x, y, rect);
+          }
         }
       } else {
         tooltip.classList.add('hidden');
       }
     } else {
       this.hoverTile = null;
+      this.lastHoverKey = '';
       tooltip.classList.add('hidden');
     }
   }
@@ -446,6 +472,7 @@ class Game {
       if (canMove) {
         if (this.battle.selectedUnit.x === tx && this.battle.selectedUnit.y === ty) {
           AudioSys.sfx('select');
+          this.lastMoveRange = [...this.battle.moveRange];
           this.battle.moveRange = [];
           this.state = 'battle_moved';
           this.showActionMenu();
@@ -558,8 +585,11 @@ class Game {
     if (!this.battle.moveRange.find(r => r.x === unit.x && r.y === unit.y)) {
       this.battle.moveRange.unshift({ x: unit.x, y: unit.y });
     }
+    this.lastMoveRange = [...this.battle.moveRange];
     this.battle.attackRange = [];
     this.state = 'battle_selected';
+    this.hoverTile = { x: unit.x, y: unit.y };
+    this.lastHoverKey = '';
     this.updateUnitInfo(unit);
     this.uiInfo.classList.remove('hidden');
     this.uiAction.classList.add('hidden');
@@ -571,6 +601,7 @@ class Game {
     this.battle.selectedUnit = null;
     this.battle.moveRange = [];
     this.battle.attackRange = [];
+    this.lastMoveRange = [];
     this.state = 'battle_idle';
     this.uiInfo.classList.add('hidden');
     this.uiAction.classList.add('hidden');
@@ -590,6 +621,7 @@ class Game {
     }
     unit.x = x;
     unit.y = y;
+    this.lastMoveRange = [...this.battle.moveRange];
     this.battle.moveRange = [];
     this.state = 'battle_moved';
     setTimeout(() => { unit.anim = 'idle'; }, 300);
@@ -602,6 +634,7 @@ class Game {
     this.endTurnBtn.classList.add('hidden');
     // 更新单位信息位置
     this.updateUnitInfo(this.battle.selectedUnit);
+    this.positionFloatingMenu(this.uiAction, this.battle.selectedUnit, this.lastMoveRange);
   }
 
   onAction(action) {
@@ -654,6 +687,7 @@ class Game {
       this.uiMagic.classList.add('hidden');
       this.showActionMenu();
     };
+    this.positionFloatingMenu(this.uiMagic, unit, this.lastMoveRange);
   }
 
   executeSkill(tx, ty) {
@@ -707,6 +741,7 @@ class Game {
       this.runEnemyTurn();
     } else {
       this.state = 'battle_idle';
+      this.focusNextActionableUnit();
     }
   }
 
@@ -721,8 +756,94 @@ class Game {
       } else {
         this.state = 'battle_idle';
         this.endTurnBtn.classList.remove('hidden');
+        this.focusNextActionableUnit();
       }
     });
+  }
+
+  focusNextActionableUnit() {
+    if (!this.battle || this.battle.turn !== 'player') return;
+    const next = this.battle.players.find(u => u.hp > 0 && !u.acted);
+    if (!next) return;
+    this.hoverTile = { x: next.x, y: next.y };
+    this.lastHoverKey = '';
+    const center = this.renderer.tileCenter(next.x, next.y);
+    this.renderer.camera.targetX = (this.canvas.width / 2 - center.x) * 0.04;
+    this.renderer.camera.targetY = (this.canvas.height / 2 - center.y) * 0.04;
+  }
+
+  positionFloatingMenu(menu, unit, avoidTiles = []) {
+    if (!unit) return;
+    const container = document.getElementById('game-container');
+    const containerRect = container.getBoundingClientRect();
+    const canvasRect = this.canvas.getBoundingClientRect();
+    const scaleX = canvasRect.width / this.canvas.width;
+    const scaleY = canvasRect.height / this.canvas.height;
+    const center = this.renderer.tileCenter(unit.x, unit.y);
+    const anchorX = center.x * scaleX;
+    const anchorY = center.y * scaleY;
+    const margin = 12;
+    const gap = 12;
+
+    menu.style.right = 'auto';
+    menu.style.bottom = 'auto';
+    const menuW = menu.offsetWidth || 170;
+    const menuH = menu.offsetHeight || 150;
+
+    const blockedRects = avoidTiles.map(tile => ({
+      x: tile.x * TILE * scaleX - 4,
+      y: tile.y * TILE * scaleY - 4,
+      w: TILE * scaleX + 8,
+      h: TILE * scaleY + 8,
+    }));
+    blockedRects.push({
+      x: unit.x * TILE * scaleX - 8,
+      y: unit.y * TILE * scaleY - 8,
+      w: TILE * scaleX + 16,
+      h: TILE * scaleY + 16,
+    });
+
+    for (const el of [this.uiInfo, this.endTurnBtn]) {
+      if (!el || el === menu || el.classList.contains('hidden')) continue;
+      const r = el.getBoundingClientRect();
+      blockedRects.push({
+        x: r.left - containerRect.left - gap,
+        y: r.top - containerRect.top - gap,
+        w: r.width + gap * 2,
+        h: r.height + gap * 2,
+      });
+    }
+
+    const candidates = [
+      { x: anchorX + TILE * scaleX * 0.9, y: anchorY - menuH * 0.5 },
+      { x: anchorX - menuW - TILE * scaleX * 0.9, y: anchorY - menuH * 0.5 },
+      { x: anchorX - menuW * 0.5, y: anchorY + TILE * scaleY * 0.9 },
+      { x: anchorX - menuW * 0.5, y: anchorY - menuH - TILE * scaleY * 0.9 },
+      { x: containerRect.width - menuW - margin, y: margin + 42 },
+      { x: margin, y: containerRect.height - menuH - margin },
+    ];
+
+    const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+    const intersects = (a, b) =>
+      a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+
+    let best = candidates[0];
+    let bestScore = Infinity;
+    for (const candidate of candidates) {
+      const x = clamp(candidate.x, margin, containerRect.width - menuW - margin);
+      const y = clamp(candidate.y, margin, containerRect.height - menuH - margin);
+      const rect = { x, y, w: menuW, h: menuH };
+      const overlaps = blockedRects.reduce((sum, blocked) => sum + (intersects(rect, blocked) ? 1 : 0), 0);
+      const distance = Math.abs(x - anchorX) + Math.abs(y - anchorY);
+      const score = overlaps * 10000 + distance;
+      if (score < bestScore) {
+        bestScore = score;
+        best = { x, y };
+      }
+    }
+
+    menu.style.left = `${Math.round(best.x)}px`;
+    menu.style.top = `${Math.round(best.y)}px`;
   }
 
   onVictory() {
